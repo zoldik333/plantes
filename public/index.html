@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#22543d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Plantes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Plantes — POC</title>
+    <style>
+      :root { --green: #22543d; --bg: #f4f1ea; --card: #fff; --muted: #6b6b6b; --err: #b42318; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg); color: #1d1d1d;
+        padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px);
+      }
+      h1 { font-size: 1.5rem; margin: 0 0 4px; color: var(--green); }
+      h2 { font-size: 1.05rem; margin: 0 0 10px; }
+      .sub { color: var(--muted); margin: 0 0 16px; font-size: .9rem; }
+      .card { background: var(--card); border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+      label { display: block; font-size: .85rem; color: var(--muted); margin: 10px 0 4px; }
+      input[type=text], input[type=password] { width: 100%; padding: 11px 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
+      button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--green); color: #fff; font-size: 16px; font-weight: 600; margin-top: 12px; }
+      button.secondary { background: #e7efe9; color: var(--green); }
+      button:disabled { opacity: .5; }
+      .status { font-size: .9rem; margin-top: 10px; white-space: pre-wrap; }
+      .status.err { color: var(--err); }
+      .warn { background: #fff7e0; border: 1px solid #f1d58a; }
+      img#preview { width: 100%; border-radius: 10px; margin-top: 10px; display: none; }
+      .sheet dl { margin: 0; }
+      .sheet dt { font-weight: 600; margin-top: 10px; color: var(--green); }
+      .sheet dd { margin: 2px 0 0; }
+      .pill { display: inline-block; background: #e7efe9; color: var(--green); border-radius: 999px; padding: 2px 10px; font-size: .8rem; margin-right: 6px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>🌿 Plantes — POC</h1>
+    <p class="sub">Test de faisabilité : fiche IA + notifications push</p>
+
+    <div id="install-hint" class="card warn hidden">
+      <h2>Installe l'app d'abord</h2>
+      Sur iPhone, les notifications ne marchent que depuis l'app installée :
+      Safari → bouton Partager → <b>Sur l'écran d'accueil</b>, puis ouvre « Plantes » depuis l'écran d'accueil.
+    </div>
+
+    <div class="card">
+      <h2>🔑 Clé d'accès</h2>
+      <input id="key" type="password" placeholder="POC_ACCESS_KEY" autocomplete="off" />
+      <button id="save-key" class="secondary">Enregistrer</button>
+      <div id="key-status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔔 Test 2 — Notifications</h2>
+      <button id="enable-push">Activer les notifications</button>
+      <button id="test-push" class="secondary">M'envoyer une notif dans 10 s</button>
+      <div id="push-status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>📸 Test 1 — Fiche d'entretien</h2>
+      <label for="name">Nom de la plante</label>
+      <input id="name" type="text" placeholder="ex. Calathea sanderiana" />
+      <label for="photo">Photo (facultatif)</label>
+      <input id="photo" type="file" accept="image/*" />
+      <img id="preview" alt="Aperçu" />
+      <button id="generate">Générer la fiche</button>
+      <div id="sheet-status" class="status"></div>
+    </div>
+
+    <div id="sheet" class="card sheet hidden"></div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

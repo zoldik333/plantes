@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:3000:3000" # accès local pour le debug uniquement
+    restart: unless-stopped
+
+  # Tunnel Cloudflare "rapide" : URL https://xxxx.trycloudflare.com gratuite, sans compte.
+  # L'URL change à chaque redémarrage ; on passera sur ton domaine pour la vraie app.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://app:3000
+    depends_on:
+      - app
+    restart: unless-stopped

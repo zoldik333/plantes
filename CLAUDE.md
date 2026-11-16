@@ -25,9 +25,14 @@ PWA perso pour gérer les plantes d'intérieur d'un foyer de 2-3 personnes. Pas 
 - Web Push reçu sur iPhone depuis la PWA installée.
 - Fiche volontairement courte et sans jargon (schéma `src/ai/schema.ts`, ton dans `prompts.ts`) ; **la photo est facultative** (nom seul accepté) ; pas de champ toxicité.
 
+Déployé et validé sur le serveur Debian (`node1`, `zoldik333@192.168.1.10`, Debian 13, 3,7 Go de RAM) le 17 novembre 2026 : fiche IA et Web Push OK depuis l'iPhone.
+- Code dans `~/plantes`, cloné depuis `git@github.com:zoldik333/plantes.git` (privé) avec une **deploy key** en lecture seule (`~/.ssh/plantes_deploy`, alias SSH `github-plantes`).
+- Lancement : `cd ~/plantes && git pull && docker compose up -d --build`. Le `.env` du serveur est copié à la main (jamais dans git).
+- Données dans le volume nommé `plantes-data` (un bind `./data` ne marche pas : uid hôte 1001 ≠ uid conteneur 1000).
+- L'URL `trycloudflare` change à chaque redémarrage du conteneur `tunnel` → PWA à réinstaller.
+
 Pas encore fait :
 - Test Web Push écran verrouillé + app fermée de façon explicite, et cas `nameMatchesPhoto: false`.
-- Exécution sur le serveur Debian (Docker, Node 22).
 
 Pièges rencontrés :
 - Le serveur ne lit pas `.env` seul (c'est `compose`) : en local, `npx tsx --env-file=.env src/server.ts`.
@@ -35,9 +40,8 @@ Pièges rencontrés :
 - Le token vit dans `.env` (ignoré par git), jamais dans `.env.example`.
 
 ## Prochaines étapes
-1. Faire tourner le POC sur le serveur Debian (Compose + tunnel).
-2. Question ouverte : sous-domaine choisi et domaine déjà géré par Cloudflare ou non.
-3. Puis socle V1 : monorepo, Compose, tunnel sur le domaine, CI GitHub Actions → GHCR.
+1. Question ouverte : sous-domaine choisi et domaine déjà géré par Cloudflare ou non (supprime la réinstallation de la PWA à chaque redémarrage du tunnel).
+2. Puis socle V1 : monorepo, Compose, tunnel sur le domaine, CI GitHub Actions → GHCR.
 
 ## Façon de travailler avec Théo
 - Pas de formules creuses ni de paragraphe d'introduction : commencer par l'essentiel.

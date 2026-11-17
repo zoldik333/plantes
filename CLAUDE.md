@@ -41,10 +41,16 @@ Pièges rencontrés :
 - La PWA iOS garde d'anciennes versions : le serveur envoie `Cache-Control: no-cache` ; après un changement de schéma, fermer la PWA complètement.
 - Le token vit dans `.env` (ignoré par git), jamais dans `.env.example`.
 
+## Socle V1 (en cours)
+- **Monorepo pnpm** : `apps/api` (Hono), `packages/shared` (`@plantes/shared`, schéma Zod de la fiche). Le code du POC est dans `apps/api/src` (l'interface `AiProvider` : `apps/api/src/ai/provider.ts`). pnpm n'est pas installé sur le Mac : `npx -y pnpm@10 …`.
+- **CI/CD** : GitHub Actions (typecheck, puis image `ghcr.io/zoldik333/plantes:latest`). `node1` exécute `scripts/deploy.sh` par cron toutes les 2 min (`git pull`, `compose pull`, `up -d`), journal `~/plantes-deploy.log`. `docker login ghcr.io` fait sur `node1` avec un jeton `read:packages`.
+- **Base** : SQLite (`better-sqlite3`, WAL) + Drizzle. Fichier `DATA_DIR/plantes.db`, migrations dans `apps/api/drizzle` appliquées au démarrage. Nouvelle migration : modifier `src/db/schema.ts`, puis `pnpm --filter @plantes/api exec drizzle-kit generate --name <nom>`. Ne pas autoriser `better-sqlite3` dans `onlyBuiltDependencies` : il embarque ses binaires, sinon `node-gyp` est lancé et échoue (pas de compilateur dans l'image).
+- **Sauvegardes** : copie quotidienne cohérente dans `DATA_DIR/backups` (14 gardées), **sur le même volume** : ne protège pas d'une panne du disque de `node1`. Copie hors machine à prévoir.
+
 ## Prochaines étapes
-1. Socle V1 : monorepo pnpm, Hono, SQLite + Drizzle, Better Auth (e-mail/mot de passe + passkeys, désormais possible : vrai domaine HTTPS), foyer partagé.
-2. CI GitHub Actions → GHCR.
-3. À durcir si besoin : limite de débit sur l'API (Caddy), sauvegarde du volume `plantes-data`.
+1. Étape 3 : Better Auth (e-mail/mot de passe + passkeys), foyer, invitation par lien (tout membre peut inviter), remplace `POC_ACCESS_KEY`. Pas de serveur d'e-mail prévu.
+2. Étape 4 : pièces et plantes (photos sur volume). Étape 5 : ajout par l'IA en tâche de fond. Étape 6 : rappels et journal. Étape 7 : interface React + Tailwind, au fil des étapes.
+3. À durcir : limite de débit sur l'API (Caddy), sauvegarde hors machine.
 
 ## Façon de travailler avec Théo
 - Pas de formules creuses ni de paragraphe d'introduction : commencer par l'essentiel.

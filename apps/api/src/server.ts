@@ -2,6 +2,8 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { AiProviderError, createAiProvider, type ImageMediaType } from "./ai/index.js";
+import { scheduleBackups } from "./db/backup.js";
+import { openDb } from "./db/index.js";
 import { PushService } from "./push.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -14,7 +16,9 @@ if (!ACCESS_KEY || ACCESS_KEY.length < 12) {
 }
 
 const ai = createAiProvider();
-const push = new PushService(`${DATA_DIR}/subscriptions.json`);
+const db = openDb(DATA_DIR);
+scheduleBackups(db, DATA_DIR);
+const push = new PushService(db, `${DATA_DIR}/subscriptions.json`);
 const app = new Hono();
 
 // L'URL du tunnel est publique : on protège l'API par une clé partagée.

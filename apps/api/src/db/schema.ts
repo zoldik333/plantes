@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { CareSheet } from "@plantes/shared";
 import { user } from "./auth-schema.js";
 
 // Tables de Better Auth : user, session, account, verification, passkey.
@@ -60,4 +61,40 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
   auth: text("auth").notNull(),
   userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(now),
+});
+
+/** Pièces / emplacements du foyer. */
+export const rooms = sqliteTable("rooms", {
+  id: text("id").primaryKey(),
+  householdId: text("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+});
+
+/** Plante du foyer. Supprimer une pièce laisse ses plantes sans pièce (set null). */
+export const plants = sqliteTable("plants", {
+  id: text("id").primaryKey(),
+  householdId: text("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  roomId: text("room_id").references(() => rooms.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  /** Fiche d'entretien (voir @plantes/shared), générée par l'IA puis modifiable. */
+  careSheet: text("care_sheet", { mode: "json" }).$type<CareSheet>(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+});
+
+/** Photos d'une plante (fichiers dans DATA_DIR/photos). La plus récente sert de couverture. */
+export const plantPhotos = sqliteTable("plant_photos", {
+  id: text("id").primaryKey(),
+  plantId: text("plant_id")
+    .notNull()
+    .references(() => plants.id, { onDelete: "cascade" }),
+  householdId: text("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
 });

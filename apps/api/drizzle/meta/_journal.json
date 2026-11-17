@@ -15,6 +15,13 @@
       "when": 1794877710450,
       "tag": "0001_auth_households",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794919289227,
+      "tag": "0002_rooms_plants",
+      "breakpoints": true
     }
   ]
 }

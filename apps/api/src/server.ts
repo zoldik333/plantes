@@ -7,6 +7,8 @@ import { scheduleBackups } from "./db/backup.js";
 import { DATA_DIR, db } from "./db/instance.js";
 import { PushService } from "./push.js";
 import { accountRoutes } from "./routes/account.js";
+import { photosRoutes, plantsRoutes } from "./routes/plants.js";
+import { roomsRoutes } from "./routes/rooms.js";
 import { requireMember, type AuthEnv } from "./session.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -40,6 +42,9 @@ app.all("/api/auth/sign-up/*", (c) => c.json({ error: "Inscription sur invitatio
 app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api", accountRoutes(ACCESS_KEY));
+app.route("/api/rooms", roomsRoutes);
+app.route("/api/plants", plantsRoutes);
+app.route("/api/photos", photosRoutes);
 
 app.get("/api/push/public-key", requireMember, (c) => c.json({ publicKey: push.publicKey }));
 

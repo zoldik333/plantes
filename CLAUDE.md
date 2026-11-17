@@ -55,9 +55,14 @@ Pièges rencontrés :
 - **Front** : `apps/web` (React 19, Vite, Tailwind 4, wouter), servi par l'API depuis `apps/web/dist` (même origine). `pnpm dev` : API sur :3000 et Vite sur :5173 avec proxy `/api`. Le service worker (`public/sw.js`) ne gère que le push, pas de cache hors ligne ; `vite-plugin-pwa` reste à ajouter.
 - Test local sans navigateur : `curl` sur le flux complet (23 vérifications) ; les passkeys, elles, ne se testent que dans un vrai navigateur/appareil.
 
+- **Pièces, plantes, photos (étape 4)** : tables `rooms`, `plants` (fiche d'entretien en JSON, validée par `CareSheet` de `@plantes/shared`), `plant_photos`. Routes `/api/rooms`, `/api/plants`, `/api/photos/:id`, toutes derrière `requireMember` et **filtrées par `householdId`** (un id d'un autre foyer = 404) ; test d'accès croisé entre deux foyers (39 vérifications). Supprimer une pièce laisse ses plantes « sans pièce » ; supprimer une plante supprime ses fichiers.
+  - Photos : ré-encodées par `sharp` (`apps/api/src/lib/photos.ts`) : rotation EXIF appliquée, **EXIF/GPS supprimés**, 1600 px + vignette 400 px, JPEG. Stockées dans `DATA_DIR/photos/<foyer>/<id>.jpg` et `.thumb.jpg`, servies uniquement avec session (`Cache-Control: private`). Limite 8 Mo, 20 photos par plante, 300 plantes, 50 pièces par foyer. `sharp` n'a pas besoin d'être dans `onlyBuiltDependencies` (binaires fournis).
+  - **Sauvegardes : la base seule est sauvegardée, pas `photos/`** (à couvrir avec la copie hors machine).
+  - Front : onglets Plantes / Pièces / Réglages (`components/Shell.tsx`), liste filtrable par pièce, fiche plante (photos, nom, pièce, suppression). La « Fiche d'entretien » IA reste dans Réglages (labo) jusqu'à l'étape 5.
+
 ## Prochaines étapes
-1. Étape 3 : faire valider les passkeys sur l'iPhone en production (création du premier compte, ajout et connexion par passkey, invitation d'un second compte).
-2. Étape 4 : pièces et plantes (photos sur volume). Étape 5 : ajout par l'IA en tâche de fond. Étape 6 : rappels et journal (les abonnements push sont déjà liés à `user_id`). Étape 7 : interface au fil des étapes.
+1. Étape 3 : passkeys validées sur l'iPhone en production (confirmé par Théo le 17/11/2026).
+2. Étape 5 : ajout par l'IA en tâche de fond (nom + photo → fiche proposée, modifiable avant enregistrement, 1 appel à la fois). Étape 6 : rappels et journal (les abonnements push sont déjà liés à `user_id`). Étape 7 : interface au fil des étapes.
 3. À durcir : limite de débit sur l'API (Caddy), sauvegarde hors machine.
 
 ## Façon de travailler avec Théo

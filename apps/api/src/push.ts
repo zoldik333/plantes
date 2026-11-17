@@ -35,8 +35,8 @@ export class PushService {
     }
   }
 
-  private upsert(sub: PushSubscription): void {
-    const row = { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth };
+  private upsert(sub: PushSubscription, userId?: string): void {
+    const row = { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, ...(userId && { userId }) };
     this.db
       .insert(pushSubscriptions)
       .values(row)
@@ -52,8 +52,8 @@ export class PushService {
       .map((r) => ({ endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } }));
   }
 
-  async subscribe(sub: PushSubscription): Promise<number> {
-    this.upsert(sub);
+  async subscribe(sub: PushSubscription, userId: string): Promise<number> {
+    this.upsert(sub, userId);
     return this.all().length;
   }
 

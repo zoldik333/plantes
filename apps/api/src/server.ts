@@ -2,13 +2,18 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { AiProviderError, createAiProvider, type ImageMediaType } from "./ai/index.js";
+import { APP_URL, auth } from "./auth.js";
 import { scheduleBackups } from "./db/backup.js";
-import { openDb } from "./db/index.js";
+import { DATA_DIR, db } from "./db/instance.js";
 import { PushService } from "./push.js";
+import { accountRoutes } from "./routes/account.js";
+import { requireMember, type AuthEnv } from "./session.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
+/** Sert uniquement à créer le tout premier compte (clé d'installation). */
 const ACCESS_KEY = process.env.POC_ACCESS_KEY;
-const DATA_DIR = process.env.DATA_DIR ?? "./data";
+/** Build du front (apps/web/dist), relatif au dossier de travail apps/api. */
+const WEB_DIR = process.env.WEB_DIR ?? "../web/dist";
 const MAX_PHOTO_BYTES = 3.5 * 1024 * 1024;
 
 if (!ACCESS_KEY || ACCESS_KEY.length < 12) {
@@ -16,36 +21,45 @@ if (!ACCESS_KEY || ACCESS_KEY.length < 12) {
 }
 
 const ai = createAiProvider();
-const db = openDb(DATA_DIR);
 scheduleBackups(db, DATA_DIR);
 const push = new PushService(db, `${DATA_DIR}/subscriptions.json`);
-const app = new Hono();
+const app = new Hono<AuthEnv>();
 
-// L'URL du tunnel est publique : on protège l'API par une clé partagée.
+// Les requêtes qui modifient des données doivent venir de notre propre origine (défense CSRF en plus de SameSite).
+const appOrigin = new URL(APP_URL).origin;
 app.use("/api/*", async (c, next) => {
-  if (c.req.header("x-access-key") !== ACCESS_KEY) return c.json({ error: "Clé d'accès invalide" }, 401);
+  const origin = c.req.header("origin");
+  if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && origin && origin !== appOrigin) {
+    return c.json({ error: "Origine refusée" }, 403);
+  }
   await next();
 });
 
-app.get("/api/push/public-key", (c) => c.json({ publicKey: push.publicKey }));
+// Better Auth : l'inscription passe uniquement par /api/signup (invitation obligatoire).
+app.all("/api/auth/sign-up/*", (c) => c.json({ error: "Inscription sur invitation uniquement" }, 404));
+app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
 
-app.post("/api/push/subscribe", async (c) => {
+app.route("/api", accountRoutes(ACCESS_KEY));
+
+app.get("/api/push/public-key", requireMember, (c) => c.json({ publicKey: push.publicKey }));
+
+app.post("/api/push/subscribe", requireMember, async (c) => {
   const sub = await c.req.json();
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
     return c.json({ error: "Abonnement invalide" }, 400);
   }
-  const total = await push.subscribe(sub);
+  const total = await push.subscribe(sub, c.get("user").id);
   return c.json({ ok: true, total });
 });
 
-app.post("/api/push/test", async (c) => {
+app.post("/api/push/test", requireMember, async (c) => {
   const { delaySeconds = 10 } = await c.req.json().catch(() => ({}));
   const delay = Math.min(Math.max(Number(delaySeconds) || 0, 0), 120);
   setTimeout(() => {
     push
       .sendToAll({
         title: "💧 3 plantes à arroser",
-        body: "Calathea, Asparagus, Begonia — test de notification du POC",
+        body: "Calathea, Asparagus, Begonia — test de notification",
         url: "/",
       })
       .then((r) => console.log(`[push] envoyé ${r.sent}/${r.total}`))
@@ -54,7 +68,7 @@ app.post("/api/push/test", async (c) => {
   return c.json({ ok: true, delaySeconds: delay });
 });
 
-app.post("/api/care-sheet", async (c) => {
+app.post("/api/care-sheet", requireMember, async (c) => {
   const body = await c.req.parseBody();
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const photo = body.photo instanceof File && body.photo.size > 0 ? body.photo : undefined;
@@ -83,13 +97,18 @@ app.post("/api/care-sheet", async (c) => {
 
 app.get("/health", (c) => c.json({ ok: true, ai: ai.name }));
 
-// Pas de cache navigateur : la PWA iOS garderait sinon d'anciennes versions des fichiers.
+// Une route /api inconnue ne doit pas tomber sur la page d'accueil du front.
+app.all("/api/*", (c) => c.json({ error: "Introuvable" }, 404));
+
+// Front : fichiers de build (assets au nom haché → cache long), index.html jamais mis en cache
+// (la PWA iOS garderait sinon d'anciennes versions). Repli sur index.html pour les routes du front.
 app.use("/*", async (c, next) => {
   await next();
-  c.header("Cache-Control", "no-cache");
+  c.header("Cache-Control", c.req.path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-cache");
 });
-app.use("/*", serveStatic({ root: "./public" }));
+app.use("/*", serveStatic({ root: WEB_DIR }));
+app.get("*", serveStatic({ root: WEB_DIR, path: "index.html" }));
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
-  console.log(`POC plantes prêt sur http://localhost:${info.port} (IA : ${ai.name})`);
+  console.log(`Plantes prêt sur http://localhost:${info.port} (IA : ${ai.name})`);
 });

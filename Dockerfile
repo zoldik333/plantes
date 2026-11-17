@@ -12,11 +12,16 @@ WORKDIR /app
 # --prod=false : tsx (devDependency) lance le TypeScript directement, suffisant pour l'instant.
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --prod=false && pnpm store prune
 
 COPY apps/api apps/api
+COPY apps/web apps/web
 COPY packages/shared packages/shared
+
+# Le front est construit dans l'image et servi par l'API (même origine : cookies et passkeys).
+RUN pnpm --filter @plantes/web build
 
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node

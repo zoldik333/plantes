@@ -11,8 +11,11 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "latest",
+    "@better-auth/drizzle-adapter": "^1.7.25",
+    "@better-auth/passkey": "^1.7.25",
     "@hono/node-server": "^1.13.0",
     "@plantes/shared": "workspace:*",
+    "better-auth": "^1.7.25",
     "better-sqlite3": "^13.2.0",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.6.0",

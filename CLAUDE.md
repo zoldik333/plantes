@@ -31,7 +31,7 @@ Déployé et validé sur le serveur Debian (`node1`, `zoldik333@192.168.1.10`, D
 - Données dans le volume nommé `plantes-data` (un bind `./data` ne marche pas : uid hôte 1001 ≠ uid conteneur 1000).
 - **Exposition** : `https://plantes.tvermorel.fr`, via **Caddy** (service `caddy` du Compose, certificat Let's Encrypt automatique, volume `caddy-data` à conserver). Plus de tunnel Cloudflare. IP publique statique `82.67.218.121`, ports 80/443 (TCP) et 443 (UDP) redirigés par la box vers `192.168.1.10` (réserver cette IP en DHCP).
 - DNS : le domaine `tvermorel.fr` est chez OVH, zone DNS OVH (DNSSEC désactivé). Avant le 17/11/2026 il était délégué à des serveurs AWS Route 53 vides (SERVFAIL). Enregistrement `A plantes → 82.67.218.121`.
-- L'API est protégée par `POC_ACCESS_KEY` (en-tête `x-access-key`), sans limite de débit. L'IP du foyer est exposée directement.
+- L'API exige une session (cookie Better Auth) ; `POC_ACCESS_KEY` ne sert plus qu'à créer le premier compte. L'IP du foyer est exposée directement.
 
 Pas encore fait :
 - Test Web Push écran verrouillé + app fermée de façon explicite, et cas `nameMatchesPhoto: false`.
@@ -47,9 +47,17 @@ Pièges rencontrés :
 - **Base** : SQLite (`better-sqlite3`, WAL) + Drizzle. Fichier `DATA_DIR/plantes.db`, migrations dans `apps/api/drizzle` appliquées au démarrage. Nouvelle migration : modifier `src/db/schema.ts`, puis `pnpm --filter @plantes/api exec drizzle-kit generate --name <nom>`. Ne pas autoriser `better-sqlite3` dans `onlyBuiltDependencies` : il embarque ses binaires, sinon `node-gyp` est lancé et échoue (pas de compilateur dans l'image).
 - **Sauvegardes** : copie quotidienne cohérente dans `DATA_DIR/backups` (14 gardées), **sur le même volume** : ne protège pas d'une panne du disque de `node1`. Copie hors machine à prévoir.
 
+- **Auth (étape 3)** : Better Auth 1.7 (`apps/api/src/auth.ts`) + plugin passkey, tables dans `db/auth-schema.ts` (généré par `npx auth@latest generate`, ne pas éditer). `APP_URL` et `BETTER_AUTH_SECRET` obligatoires en production ; le rpID des passkeys vient de `APP_URL`.
+  - **Inscription fermée** : `/api/auth/sign-up/*` est bloqué ; seul `POST /api/signup` crée un compte, avec un jeton d'invitation. Le tout premier compte (crée le foyer) exige `POC_ACCESS_KEY` (clé d'installation, plus une clé d'API).
+  - **Un foyer par personne** (`household_members.user_id` clé primaire). Tout membre peut inviter (lien `/join/<jeton>`, 7 jours, usage unique). Jetons stockés hachés (SHA-256).
+  - **Pas de mail** : « mot de passe oublié » = un autre membre génère un lien `/reset/<jeton>` (24 h, usage unique, révoque les sessions). Les passkeys servent aussi de secours.
+  - Garde-fous : contrôle de l'en-tête `Origin` sur les écritures, limiteur par IP sur signup / invitation / reset (`X-Forwarded-For` de Caddy), limiteur intégré de Better Auth.
+- **Front** : `apps/web` (React 19, Vite, Tailwind 4, wouter), servi par l'API depuis `apps/web/dist` (même origine). `pnpm dev` : API sur :3000 et Vite sur :5173 avec proxy `/api`. Le service worker (`public/sw.js`) ne gère que le push, pas de cache hors ligne ; `vite-plugin-pwa` reste à ajouter.
+- Test local sans navigateur : `curl` sur le flux complet (23 vérifications) ; les passkeys, elles, ne se testent que dans un vrai navigateur/appareil.
+
 ## Prochaines étapes
-1. Étape 3 : Better Auth (e-mail/mot de passe + passkeys), foyer, invitation par lien (tout membre peut inviter), remplace `POC_ACCESS_KEY`. Pas de serveur d'e-mail prévu.
-2. Étape 4 : pièces et plantes (photos sur volume). Étape 5 : ajout par l'IA en tâche de fond. Étape 6 : rappels et journal. Étape 7 : interface React + Tailwind, au fil des étapes.
+1. Étape 3 : faire valider les passkeys sur l'iPhone en production (création du premier compte, ajout et connexion par passkey, invitation d'un second compte).
+2. Étape 4 : pièces et plantes (photos sur volume). Étape 5 : ajout par l'IA en tâche de fond. Étape 6 : rappels et journal (les abonnements push sont déjà liés à `user_id`). Étape 7 : interface au fil des étapes.
 3. À durcir : limite de débit sur l'API (Caddy), sauvegarde hors machine.
 
 ## Façon de travailler avec Théo

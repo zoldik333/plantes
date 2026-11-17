@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-leaf-50: #f0f7f2;
+  --color-leaf-100: #d9ecdf;
+  --color-leaf-600: #2f6f4e;
+  --color-leaf-700: #22543d;
+  --color-leaf-800: #1b4332;
+  --color-paper: #f4f1ea;
+}
+
+html {
+  background: var(--color-paper);
+  color: #1f2a24;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Zones sûres de l'iPhone (encoche, barre d'accueil) en mode application installée. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}

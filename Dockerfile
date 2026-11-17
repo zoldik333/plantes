@@ -5,19 +5,23 @@ ENV NODE_ENV=production \
     DATA_DIR=/app/data \
     AI_WORKDIR=/tmp/plantes-ai
 
+RUN corepack enable
 WORKDIR /app
-COPY package*.json ./
-# --include=optional : le binaire Claude Code est une dépendance optionnelle de l'Agent SDK.
-# --include=dev : tsx sert à lancer le TypeScript directement (suffisant pour un POC).
-RUN npm install --include=optional --include=dev && npm cache clean --force
 
-COPY tsconfig.json ./
-COPY src ./src
-COPY public ./public
+# Dépendances d'abord (couche mise en cache tant que les package.json et le lockfile ne changent pas).
+# --prod=false : tsx (devDependency) lance le TypeScript directement, suffisant pour l'instant.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
+RUN pnpm install --frozen-lockfile --prod=false && pnpm store prune
+
+COPY apps/api apps/api
+COPY packages/shared packages/shared
 
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 
+WORKDIR /app/apps/api
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["npx", "tsx", "src/server.ts"]
+CMD ["./node_modules/.bin/tsx", "src/server.ts"]

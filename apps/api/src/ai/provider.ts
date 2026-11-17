@@ -1,4 +1,4 @@
-import type { CareSheet } from "./schema.js";
+import type { CareSheet } from "@plantes/shared";
 
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 

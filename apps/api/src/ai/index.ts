@@ -2,7 +2,7 @@ import { ClaudeAgentSdkProvider } from "./claude-agent-sdk.js";
 import type { AiProvider } from "./provider.js";
 
 export * from "./provider.js";
-export * from "./schema.js";
+export * from "@plantes/shared";
 
 /** Choix du fournisseur par variable d'environnement : AI_PROVIDER=claude-agent-sdk (défaut). */
 export function createAiProvider(): AiProvider {

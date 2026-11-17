@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { AiProviderError, type AiProvider, type CareSheetResult, type Photo } from "./provider.js";
 import { CARE_SHEET_SYSTEM_PROMPT, buildCareSheetPrompt } from "./prompts.js";
-import { CareSheet, careSheetJsonSchema } from "./schema.js";
+import { CareSheet, careSheetJsonSchema } from "@plantes/shared";
 
 interface Options {
   /** Alias ("sonnet", "opus", "haiku") ou nom complet du modèle. */

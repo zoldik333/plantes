@@ -1,5 +1,7 @@
 services:
   app:
+    # Image construite par la CI ; `docker compose up --build` la reconstruit en local si besoin.
+    image: ghcr.io/zoldik333/plantes:latest
     build: .
     env_file: .env
     volumes:

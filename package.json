@@ -1,25 +1,21 @@
 {
-  "name": "poc-plantes",
+  "name": "plantes",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "start": "tsx src/server.ts",
-    "dev": "tsx watch src/server.ts",
-    "vapid": "tsx src/gen-vapid.ts",
-    "test:ai": "tsx src/cli-care-sheet.ts",
-    "typecheck": "tsc --noEmit"
+    "start": "pnpm --filter @plantes/api start",
+    "dev": "pnpm --filter @plantes/api dev",
+    "typecheck": "pnpm -r typecheck",
+    "test:ai": "pnpm --filter @plantes/api test:ai",
+    "vapid": "pnpm --filter @plantes/api vapid"
   },
-  "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "latest",
-    "@hono/node-server": "^1.13.0",
-    "hono": "^4.6.0",
-    "web-push": "^3.6.7",
-    "zod": "^4.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0",
-    "@types/web-push": "^3.6.4",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

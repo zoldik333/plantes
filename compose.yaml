@@ -10,14 +10,23 @@ services:
       - "127.0.0.1:3000:3000" # accès local pour le debug uniquement
     restart: unless-stopped
 
-  # Tunnel Cloudflare "rapide" : URL https://xxxx.trycloudflare.com gratuite, sans compte.
-  # L'URL change à chaque redémarrage ; on passera sur ton domaine pour la vraie app.
-  tunnel:
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate --url http://app:3000
+  # Reverse proxy HTTPS : certificat Let's Encrypt obtenu et renouvelé automatiquement.
+  # Prérequis : DNS plantes.tvermorel.fr → IP publique, et ports 80/443 de la box redirigés vers ce serveur.
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # certificats : à ne pas perdre (limites Let's Encrypt)
+      - caddy-config:/config
     depends_on:
       - app
     restart: unless-stopped
 
 volumes:
   plantes-data:
+  caddy-data:
+  caddy-config:

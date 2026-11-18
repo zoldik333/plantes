@@ -63,7 +63,7 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
 
   it("ajout d'une plante avec photo : aperçu, suivi de génération, fiche affichée sans recharger", async () => {
     await page.getByRole("link", { name: /Plantes/ }).click();
-    await page.getByRole("link", { name: "+ Ajouter" }).click();
+    await page.getByRole("link", { name: "Ajouter", exact: true }).click();
     await page.getByLabel("Nom", { exact: true }).fill("Ma Calathea");
     await page.getByLabel("Pièce").selectOption({ label: "Salon" });
     await page.locator('input[type="file"]').setInputFiles(await photoFile());

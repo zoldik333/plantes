@@ -47,7 +47,7 @@ export function Notice({ kind = "info", children }: { kind?: "info" | "error" | 
     error: "bg-red-50 text-red-700",
     ok: "bg-leaf-50 text-leaf-800",
   }[kind];
-  return <p className={`rounded-xl px-3 py-2 text-sm whitespace-pre-line ${styles}`}>{children}</p>;
+  return <p className={`rounded-xl px-3 py-2 text-sm break-words whitespace-pre-line ${styles}`}>{children}</p>;
 }
 
 /** Exécute une action asynchrone en suivant son état (en cours / erreur). */

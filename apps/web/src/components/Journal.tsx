@@ -54,13 +54,13 @@ export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: stri
             <p className="text-body-sm text-on-deep-muted">
               {water.lastWateredAt ? `Dernier arrosage : ${shortDateTime(water.lastWateredAt)}. ` : "Jamais arrosée depuis son ajout. "}
               Rythme actuel : tous les {water.intervalDays} jours.
-              {water.snoozed && " Repoussé : encore humide."}
+              {water.snoozed && " (repoussé : encore humide)"}
             </p>
             <div className="flex gap-2">
               <Button variant="primary" icon="drop" className="flex-1" disabled={busy} onClick={() => void add("watered")}>
                 Arrosée
               </Button>
-              <Button variant="on-deep" className="flex-1" disabled={busy} onClick={() => void add("still_wet")}>
+              <Button variant="on-deep" className="flex-none" disabled={busy} onClick={() => void add("still_wet")}>
                 Encore humide
               </Button>
             </div>

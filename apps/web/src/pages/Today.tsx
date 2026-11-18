@@ -135,7 +135,7 @@ export default function Today() {
                   <Button variant="primary" icon="drop" className="flex-1" disabled={busy} onClick={() => act(first, "watered")}>
                     Arrosée
                   </Button>
-                  <Button variant="on-deep" className="flex-1" disabled={busy} onClick={() => act(first, "still_wet")}>
+                  <Button variant="on-deep" className="flex-none" disabled={busy} onClick={() => act(first, "still_wet")}>
                     Encore humide
                   </Button>
                 </div>
@@ -158,7 +158,7 @@ export default function Today() {
                     <Button variant="dark" icon="drop" className="flex-1" disabled={busy} onClick={() => act(p, "watered")}>
                       Arrosée
                     </Button>
-                    <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => act(p, "still_wet")}>
+                    <Button variant="secondary" className="flex-none" disabled={busy} onClick={() => act(p, "still_wet")}>
                       Encore humide
                     </Button>
                   </div>

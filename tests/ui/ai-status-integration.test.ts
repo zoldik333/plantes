@@ -69,7 +69,7 @@ describe("interface : jeton Claude de bout en bout", { skip: cannotRun }, () => 
     await bob.waitForTimeout(800);
     assert.equal(await alert(bob, /jeton Claude/).count(), 0, "l'autre membre n'est pas importuné");
     await alice.goto(s.url + "/settings");
-    assert.ok(await shown(alice.getByText("Jeton Claude")));
+    assert.ok(await shown(alice.getByText("Jeton Claude", { exact: true })));
   });
 
   it("jeton refusé par l'IA : message clair sur la plante, bandeau rouge pour les deux, la commande seulement pour le propriétaire", async () => {
@@ -86,7 +86,7 @@ describe("interface : jeton Claude de bout en bout", { skip: cannotRun }, () => 
     assert.equal(await bob.getByText("./scripts/rotate-token.sh").count(), 0, "mais sans la commande");
     await bob.goto(s.url + "/settings");
     await bob.getByText(/Connecté en tant que/).waitFor();
-    assert.equal(await bob.getByText("Jeton Claude").count(), 0, "et sans la carte du jeton");
+    assert.equal(await bob.getByText("Jeton Claude", { exact: true }).count(), 0, "et sans la carte du jeton");
 
     await alice.goto(s.url + "/settings");
     assert.ok(await shown(alice.getByText(/Problème détecté/)), "la carte du propriétaire indique le problème");

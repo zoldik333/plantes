@@ -12,7 +12,7 @@ const TABS: { href: string; icon: IconName; label: string; match: (p: string) =>
 
 /**
  * Cadre des pages connectées : contenu + barre d'onglets flottante en verre (pouce de l'utilisateur).
- * L'onglet actif est en citron avec son libellé ; les autres n'affichent que l'icône (nom accessible par aria-label).
+ * L'onglet actif est en citron avec son libellé ; les autres n'affichent que l'icône (libellé en texte masqué).
  */
 export function Shell({ children }: { children: ReactNode }) {
   const [path] = useLocation();
@@ -39,8 +39,10 @@ export function Shell({ children }: { children: ReactNode }) {
                     {t.label}
                   </Link>
                 ) : (
-                  <Link href={t.href} aria-label={t.label} className="flex size-12 items-center justify-center rounded-full text-ink-muted active:bg-surface-sunken">
+                  <Link href={t.href} className="flex size-12 items-center justify-center rounded-full text-ink-muted active:bg-surface-sunken">
                     <Icon name={t.icon} size={22} />
+                    {/* Texte masqué plutôt qu'aria-label : « Pièces » ne doit pas répondre à un libellé de champ « Pièce ». */}
+                    <span className="sr-only">{t.label}</span>
                   </Link>
                 )}
               </li>

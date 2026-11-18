@@ -53,7 +53,7 @@ export const buttonStyles: Record<ButtonVariant, string> = {
 
 /** Classes d'un bouton, pour un lien qui en a l'apparence (`<Link className={buttonClass("dark")}>`). */
 export const buttonClass = (variant: ButtonVariant = "primary", extra = "") =>
-  `inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-5 text-button transition-colors disabled:opacity-50 ${buttonStyles[variant]} ${extra}`;
+  `inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-button transition-colors disabled:opacity-50 ${buttonStyles[variant]} ${extra}`;
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; icon?: IconName };
 

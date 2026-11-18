@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "wouter";
-import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
+import { Button, buttonClass, Card, Field, Notice, useAction } from "../components/ui";
 import { api } from "../lib/api";
+import { WelcomePage } from "./SignupForm";
 
 export default function Reset({ token }: { token: string }) {
   const { busy, error, run } = useAction();
@@ -17,18 +18,17 @@ export default function Reset({ token }: { token: string }) {
   };
 
   return (
-    <Page>
-      <h1 className="pt-6 text-center text-3xl font-bold text-leaf-800">🌿 Plantes</h1>
+    <WelcomePage>
       <Card title="Nouveau mot de passe">
         {done ? (
           <>
             <Notice kind="ok">Mot de passe changé. Tes autres appareils ont été déconnectés.</Notice>
-            <Link href="/login" className="font-medium text-leaf-700 underline">
+            <Link href="/login" className={buttonClass("primary", "w-full")}>
               Se connecter
             </Link>
           </>
         ) : (
-          <form onSubmit={submit} className="flex flex-col gap-3">
+          <form onSubmit={submit} className="flex flex-col gap-4">
             <Field
               label="Nouveau mot de passe (10 caractères minimum)"
               type="password"
@@ -39,12 +39,12 @@ export default function Reset({ token }: { token: string }) {
               required
             />
             {error && <Notice kind="error">{error}</Notice>}
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" variant="primary" className="w-full" disabled={busy}>
               Enregistrer
             </Button>
           </form>
         )}
       </Card>
-    </Page>
+    </WelcomePage>
   );
 }

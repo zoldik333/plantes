@@ -1,4 +1,5 @@
 import type { CareSheet } from "@plantes/shared";
+import type { AiErrorCode } from "./errors.js";
 
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
@@ -27,6 +28,7 @@ export class AiProviderError extends Error {
   constructor(
     message: string,
     readonly details?: unknown,
+    readonly code: AiErrorCode = "other",
   ) {
     super(message);
     this.name = "AiProviderError";

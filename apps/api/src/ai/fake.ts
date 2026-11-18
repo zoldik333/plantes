@@ -1,7 +1,19 @@
 import { AiProviderError, type AiProvider, type CareSheetResult, type Photo } from "./provider.js";
 import type { CareSheet } from "@plantes/shared";
+import { messageFor, type AiErrorCode } from "./errors.js";
 
-/** Fournisseur de test (AI_PROVIDER=fake) : fiche fixe après un délai ; un nom contenant « ECHEC » échoue. */
+/** Mots du nom qui simulent un échec précis. */
+const SIMULATED: [string, AiErrorCode][] = [
+  ["AUTHFAIL", "auth"],
+  ["ACCOUNTFAIL", "account"],
+  ["LIMITE", "usage_limit"],
+  ["SURCHARGE", "overloaded"],
+];
+
+/**
+ * Fournisseur de test (AI_PROVIDER=fake) : fiche fixe après un délai ; un nom contenant « ECHEC » échoue,
+ * et AUTHFAIL / ACCOUNTFAIL / LIMITE / SURCHARGE simulent les échecs correspondants.
+ */
 export class FakeProvider implements AiProvider {
   readonly name = "fake";
   constructor(private readonly delayMs: number) {}
@@ -10,6 +22,9 @@ export class FakeProvider implements AiProvider {
     const started = Date.now();
     await new Promise((r) => setTimeout(r, this.delayMs));
     if (plantName.includes("ECHEC")) throw new AiProviderError("Échec simulé");
+    for (const [word, code] of SIMULATED) {
+      if (plantName.includes(word)) throw new AiProviderError(messageFor(code), undefined, code);
+    }
     const sheet: CareSheet = {
       commonName: plantName,
       scientificName: "Plantus testus",

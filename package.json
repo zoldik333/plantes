@@ -11,6 +11,7 @@
     "dev": "pnpm --filter @plantes/api dev",
     "typecheck": "pnpm -r typecheck",
     "test:ai": "pnpm --filter @plantes/api test:ai",
+    "ai:ping": "pnpm --filter @plantes/api ai:ping",
     "vapid": "pnpm --filter @plantes/api vapid",
     "test": "pnpm --filter @plantes/tests test",
     "test:ui": "pnpm --filter @plantes/web build && pnpm --filter @plantes/tests test:ui"

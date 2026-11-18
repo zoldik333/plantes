@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, lt, or } from "drizzle-orm";
 import type { SheetJob } from "@plantes/shared";
 import { ai } from "./ai/instance.js";
+import { getPush, recordGenerationOutcome } from "./ai-status.js";
 import { AiProviderError, type Photo } from "./ai/provider.js";
 import { db } from "./db/instance.js";
 import { careSheetJobs, plantPhotos, plants } from "./db/schema.js";
@@ -93,9 +94,11 @@ async function process(job: Job): Promise<void> {
     db.update(plants).set({ careSheet: result.sheet }).where(eq(plants.id, plant.id)).run();
     db.delete(careSheetJobs).where(eq(careSheetJobs.id, job.id)).run();
     console.log(`[ai] fiche « ${plant.name} » en ${result.durationMs} ms${photo ? "" : " (sans photo)"}`);
+    await recordGenerationOutcome(getPush(), null).catch((e) => console.error("[ai] état", e));
   } catch (err) {
     console.error("[ai]", err);
     const message = err instanceof AiProviderError ? err.message : "Erreur inattendue pendant la génération";
     db.update(careSheetJobs).set({ status: "error", error: message }).where(eq(careSheetJobs.id, job.id)).run();
+    await recordGenerationOutcome(getPush(), err).catch((e) => console.error("[ai] état", e));
   }
 }

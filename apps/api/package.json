@@ -6,6 +6,7 @@
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
     "vapid": "tsx src/gen-vapid.ts",
+    "ai:ping": "tsx src/ai-ping.ts",
     "test:ai": "tsx src/cli-care-sheet.ts",
     "typecheck": "tsc --noEmit"
   },

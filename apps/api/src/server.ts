@@ -3,11 +3,13 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import { ai } from "./ai/instance.js";
+import { initAiStatus } from "./ai-status.js";
 import { APP_URL, auth } from "./auth.js";
 import { startQueue } from "./care-sheet-queue.js";
 import { scheduleBackups } from "./db/backup.js";
 import { DATA_DIR, db } from "./db/instance.js";
 import { PushService } from "./push.js";
+import { aiRoutes } from "./routes/ai.js";
 import { accountRoutes } from "./routes/account.js";
 import { photosRoutes, plantsRoutes } from "./routes/plants.js";
 import { roomsRoutes } from "./routes/rooms.js";
@@ -26,8 +28,9 @@ if (!ACCESS_KEY || ACCESS_KEY.length < 12) {
 }
 
 scheduleBackups(db, DATA_DIR);
-startQueue();
 const push = new PushService(db);
+initAiStatus(push);
+startQueue();
 startReminderScheduler(push);
 const app = new Hono<AuthEnv>();
 
@@ -78,6 +81,7 @@ app.route("/api/rooms", roomsRoutes);
 app.route("/api/plants", plantsRoutes);
 app.route("/api/photos", photosRoutes);
 app.route("/api/today", todayRoutes);
+app.route("/api/ai", aiRoutes);
 
 app.get("/api/push/public-key", requireMember, (c) => c.json({ publicKey: push.publicKey }));
 

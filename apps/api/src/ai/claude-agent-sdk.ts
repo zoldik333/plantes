@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
-import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { query, type SDKMessage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { classifyAiFailure, messageFor } from "./errors.js";
 import { AiProviderError, type AiProvider, type CareSheetResult, type Photo } from "./provider.js";
 import { CARE_SHEET_SYSTEM_PROMPT, buildCareSheetPrompt } from "./prompts.js";
 import { CareSheet, careSheetJsonSchema } from "@plantes/shared";
@@ -76,52 +77,44 @@ export class ClaudeAgentSdkProvider implements AiProvider {
     const { ANTHROPIC_API_KEY: _ignored, ...env } = process.env;
 
     const abortController = new AbortController();
-    const timer = setTimeout(() => abortController.abort(), this.opts.timeoutMs ?? 180_000);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      abortController.abort();
+    }, this.opts.timeoutMs ?? 180_000);
 
-    let structured: unknown;
-    let resultText: string | undefined;
-    let failure: string | undefined;
-
+    let outcome: StreamOutcome;
     try {
-      for await (const m of query({
-        prompt: input(),
-        options: {
-          model: this.opts.model,
-          systemPrompt: CARE_SHEET_SYSTEM_PROMPT,
-          tools: [],
-          allowedTools: ["StructuredOutput"],
-          // Ne charge ni ~/.claude ni les serveurs MCP du poste : seul l'outil de sortie structurée est exposé.
-          settingSources: [],
-          maxTurns: 4,
-          cwd: this.opts.workDir,
-          abortController,
-          env,
-          outputFormat: { type: "json_schema", schema: careSheetJsonSchema },
-        },
-      })) {
-        if (this.opts.debug && m.type === "system" && m.subtype === "init") {
-          console.log(`[ai] init: model=${m.model} tools=${JSON.stringify(m.tools)} auth=${m.apiKeySource}`);
-        }
-        if (m.type === "result") {
-          if (m.subtype === "success") {
-            structured = m.structured_output;
-            resultText = m.result;
-            if (this.opts.debug) {
-              console.log(`[ai] result: turns=${m.num_turns} duration=${m.duration_ms}ms`);
-            }
-          } else {
-            failure = m.subtype;
-          }
-        }
-      }
-    } catch (err) {
-      if (abortController.signal.aborted) throw new AiProviderError("Délai dépassé : l'IA n'a pas répondu à temps");
-      throw new AiProviderError(`Échec de l'appel Agent SDK${failure ? ` (${failure})` : ""}`, String(err));
+      outcome = await consumeStream(
+        query({
+          prompt: input(),
+          options: {
+            model: this.opts.model,
+            systemPrompt: CARE_SHEET_SYSTEM_PROMPT,
+            tools: [],
+            allowedTools: ["StructuredOutput"],
+            // Ne charge ni ~/.claude ni les serveurs MCP du poste : seul l'outil de sortie structurée est exposé.
+            settingSources: [],
+            maxTurns: 4,
+            cwd: this.opts.workDir,
+            abortController,
+            env,
+            outputFormat: { type: "json_schema", schema: careSheetJsonSchema },
+          },
+        }),
+        // Un jeton invalide ne se rétablira pas : inutile d'attendre les nouvelles tentatives.
+        () => abortController.abort(),
+        this.opts.debug,
+      );
     } finally {
       clearTimeout(timer);
     }
 
-    if (failure) throw new AiProviderError(`L'agent s'est arrêté en erreur : ${failure}`);
+    const { structured, resultText, failure, exceptionMessage, assistantErrors, texts } = outcome;
+    if (failure || exceptionMessage !== undefined || abortController.signal.aborted) {
+      const code = classifyAiFailure({ assistantErrors, texts, exceptionMessage, timedOut });
+      throw new AiProviderError(messageFor(code), { failure, assistantErrors, texts, exception: exceptionMessage }, code);
+    }
     if (structured !== undefined && structured !== null) return structured;
 
     // Repli : certaines configurations renvoient le JSON dans le texte final.
@@ -135,4 +128,61 @@ export class ClaudeAgentSdkProvider implements AiProvider {
     }
     throw new AiProviderError("Aucune sortie structurée reçue", resultText);
   }
+}
+
+export interface StreamOutcome {
+  structured?: unknown;
+  resultText?: string;
+  /** Sous-type du résultat en échec, ou « is_error » (sous-type « success » mais is_error true). */
+  failure?: string;
+  /** Message de l'exception levée par l'itérateur (le SDK en lève une après un résultat en erreur). */
+  exceptionMessage?: string;
+  /** Champs `error` des messages assistant et des `api_retry`. */
+  assistantErrors: string[];
+  /** Textes des messages assistant et du résultat. */
+  texts: string[];
+}
+
+/**
+ * Lit le flux du SDK et en tire le résultat ET les signaux d'échec. Ne lève jamais : l'exception de l'itérateur
+ * est rapportée dans `exceptionMessage`. `onAuthRetry` est appelée dès le premier `api_retry` d'authentification.
+ */
+export async function consumeStream(messages: AsyncIterable<SDKMessage>, onAuthRetry: () => void, debug = false): Promise<StreamOutcome> {
+  const out: StreamOutcome = { assistantErrors: [], texts: [] };
+  try {
+    for await (const m of messages) {
+      if (debug && m.type === "system" && m.subtype === "init") {
+        console.log(`[ai] init: model=${m.model} tools=${JSON.stringify(m.tools)} auth=${m.apiKeySource}`);
+      }
+      if (m.type === "system" && m.subtype === "api_retry") {
+        const error = String(m.error ?? "");
+        if (error) out.assistantErrors.push(error);
+        if (error === "authentication_failed") onAuthRetry();
+      }
+      if (m.type === "assistant") {
+        if (m.error) out.assistantErrors.push(String(m.error));
+        for (const block of m.message.content) {
+          if (block.type === "text") out.texts.push(block.text);
+        }
+      }
+      if (m.type === "result") {
+        if (m.subtype !== "success") {
+          out.failure = m.subtype;
+        } else {
+          if (typeof m.result === "string") out.texts.push(m.result);
+          // Attention : un échec d'authentification arrive avec subtype « success » mais is_error true.
+          if (m.is_error === true) {
+            out.failure = "is_error";
+          } else {
+            out.structured = m.structured_output;
+            out.resultText = m.result;
+            if (debug) console.log(`[ai] result: turns=${m.num_turns} duration=${m.duration_ms}ms`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    out.exceptionMessage = err instanceof Error ? err.message : String(err);
+  }
+  return out;
 }

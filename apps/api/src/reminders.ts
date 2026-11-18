@@ -1,4 +1,5 @@
 import { eq, notInArray } from "drizzle-orm";
+import { currentAiState, runTokenWatch } from "./ai-status.js";
 import { db } from "./db/instance.js";
 import { householdMembers, households, plants, reminderLog } from "./db/schema.js";
 import { parisParts } from "./lib/time.js";
@@ -105,6 +106,11 @@ export async function pingHeartbeat(url: string, timeoutMs = 10_000): Promise<bo
 
 const HEARTBEAT_EVERY_MS = 5 * 60_000;
 
+/** Adresse du signal : « /fail » (format healthchecks.io) tant que l'IA est en panne de jeton ou de compte. */
+export function heartbeatTarget(baseUrl: string, status: "ok" | "problem"): string {
+  return status === "problem" ? `${baseUrl.replace(/\/+$/, "")}/fail` : baseUrl;
+}
+
 /**
  * Vérifie chaque minute s'il faut envoyer le rappel. Si HEARTBEAT_URL est défini, signale aussi toutes les 5 minutes
  * que le planificateur tourne ET que la base répond (le signal n'est pas envoyé si le traitement échoue) : un service
@@ -120,9 +126,10 @@ export function startReminderScheduler(push: PushService): void {
     busy = true;
     try {
       await runReminders(push);
+      await runTokenWatch(push, new Date(), REMINDER_HOURS);
       if (heartbeatUrl && Date.now() - lastPing >= HEARTBEAT_EVERY_MS) {
         lastPing = Date.now();
-        const ok = await pingHeartbeat(heartbeatUrl);
+        const ok = await pingHeartbeat(heartbeatTarget(heartbeatUrl, currentAiState().status));
         if (!ok && !heartbeatDown) console.error("[surveillance] le signal « je suis vivant » n'a pas pu être envoyé");
         if (ok && heartbeatDown) console.log("[surveillance] signal rétabli");
         heartbeatDown = !ok;

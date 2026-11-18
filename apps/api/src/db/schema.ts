@@ -136,6 +136,13 @@ export const careEvents = sqliteTable(
   (t) => [index("care_events_plant_idx").on(t.plantId, t.createdAt)],
 );
 
+/** État du serveur en clé/valeur (état de l'IA, rappels de surveillance du jeton…). `value` est du texte ou du JSON. */
+export const systemState = sqliteTable("system_state", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+});
+
 /** Rappels déjà traités (un par créneau et par foyer) : évite les doublons après un redémarrage. */
 export const reminderLog = sqliteTable(
   "reminder_log",

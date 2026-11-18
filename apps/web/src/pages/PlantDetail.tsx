@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import type { CareSheet, PlantDetail as Plant, Room } from "@plantes/shared";
+import { AiStatusBanner } from "../components/AiStatusBanner";
 import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { useFetch, usePoll } from "../lib/fetch";
@@ -95,6 +96,7 @@ export default function PlantDetail({ id }: { id: string }) {
       <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
         ← Mes plantes
       </Link>
+      <AiStatusBanner />
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
         {shownPhoto ? (

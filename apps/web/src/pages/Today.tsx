@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import type { PlantSummary, Room, TodayResponse } from "@plantes/shared";
+import { AiStatusBanner } from "../components/AiStatusBanner";
 import { Button, Notice, Page, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { longDate, relativeDays } from "../lib/dates";
@@ -60,6 +61,7 @@ export default function Today() {
         {data && <p className="text-stone-600 first-letter:uppercase">{longDate(data.date)}</p>}
       </header>
 
+      <AiStatusBanner />
       {askNotifications && (
         <Notice>
           🔔 Active les notifications pour être prévenu quand une plante a soif. <Link href="/settings" className="font-medium underline">Réglages</Link>

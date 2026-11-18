@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import type { CareSheet, PlantDetail as Plant, Room } from "@plantes/shared";
 import { AiStatusBanner } from "../components/AiStatusBanner";
-import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
+import { Icon } from "../components/Icon";
+import { Button, Card, Field, Notice, Page, PlantPlaceholder, buttonClass, inputClass, labelClass, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { useFetch, usePoll } from "../lib/fetch";
 import { photoUrl, uploadPhoto } from "../lib/photos";
@@ -10,6 +11,15 @@ import { CareCard } from "../components/Journal";
 import { CareSheetEditor } from "../components/CareSheetEditor";
 import { CareSheetView } from "../components/CareSheetView";
 import { SheetStatus } from "../components/SheetStatus";
+
+function BackLink() {
+  return (
+    <Link href="/plants" className="-ml-1 inline-flex min-h-12 items-center gap-1 self-start pr-3 text-label text-ink-muted active:opacity-70">
+      <Icon name="back" />
+      Mes plantes
+    </Link>
+  );
+}
 
 export default function PlantDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
@@ -32,9 +42,7 @@ export default function PlantDetail({ id }: { id: string }) {
   if (plant.error) {
     return (
       <Page>
-        <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
-          ← Mes plantes
-        </Link>
+        <BackLink />
         <Notice kind="error">{plant.error}</Notice>
       </Page>
     );
@@ -93,62 +101,66 @@ export default function PlantDetail({ id }: { id: string }) {
 
   return (
     <Page>
-      <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
-        ← Mes plantes
-      </Link>
+      <BackLink />
       <AiStatusBanner />
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        {shownPhoto ? (
-          <img src={photoUrl(shownPhoto)} alt={p.name} className="max-h-96 w-full object-cover" />
-        ) : (
-          <div className="flex h-48 items-center justify-center bg-leaf-50 text-6xl">🪴</div>
+      {shownPhoto ? (
+        <img src={photoUrl(shownPhoto)} alt={p.name} className="max-h-96 w-full rounded-xl object-cover shadow-card" />
+      ) : (
+        <PlantPlaceholder className="h-48 w-full rounded-xl" size={56} />
+      )}
+
+      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1">
+        {p.photoIds.map((pid, i) => (
+          <button
+            key={pid}
+            type="button"
+            aria-label={`Afficher la photo ${i + 1}`}
+            aria-pressed={pid === shownPhoto}
+            onClick={() => setSelected(pid)}
+            className={`shrink-0 rounded-sm ${pid === shownPhoto ? "ring-2 ring-ink ring-offset-2 ring-offset-bg" : ""}`}
+          >
+            <img src={photoUrl(pid, true)} alt="" className="size-14 rounded-sm object-cover" />
+          </button>
+        ))}
+        <label className={buttonClass("secondary", "shrink-0 cursor-pointer")}>
+          <Icon name="camera" />
+          Ajouter
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void addPhoto(f);
+            }}
+          />
+        </label>
+        {shownPhoto && (
+          <Button variant="danger" icon="trash" className="shrink-0" disabled={busy} onClick={() => removePhoto(shownPhoto)}>
+            Retirer
+          </Button>
         )}
-        <div className="flex items-center gap-2 overflow-x-auto p-2">
-          {p.photoIds.map((pid) => (
-            <button key={pid} onClick={() => setSelected(pid)} className={`shrink-0 rounded-lg ${pid === shownPhoto ? "ring-2 ring-leaf-600" : ""}`}>
-              <img src={photoUrl(pid, true)} alt="" className="h-14 w-14 rounded-lg object-cover" />
-            </button>
-          ))}
-          <label className="flex min-h-14 shrink-0 cursor-pointer items-center rounded-lg bg-leaf-50 px-3 text-sm font-medium text-leaf-800 ring-1 ring-leaf-100">
-            📷 Ajouter
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={busy}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void addPhoto(f);
-              }}
-            />
-          </label>
-          {shownPhoto && (
-            <Button variant="danger" className="min-h-14 shrink-0 px-3 text-sm" disabled={busy} onClick={() => removePhoto(shownPhoto)}>
-              Retirer cette photo
-            </Button>
-          )}
-        </div>
       </div>
 
+      <h1 className="text-display break-words text-ink">{p.name}</h1>
+
       {error && <Notice kind="error">{error}</Notice>}
+
+      <CareCard plantId={id} water={p.water} hasSheet={p.hasSheet} onChange={plant.reload} />
 
       <Card title="Informations">
         <Field label="Nom" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
         {name.trim() && name.trim() !== p.name && (
-          <Button disabled={busy} onClick={() => void patch({ name })}>
+          <Button variant="dark" icon="check" disabled={busy} onClick={() => void patch({ name })}>
             Enregistrer le nom
           </Button>
         )}
-        <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
+        <label className={labelClass}>
           Pièce
-          <select
-            value={p.roomId ?? ""}
-            disabled={busy}
-            onChange={(e) => void patch({ roomId: e.target.value || null })}
-            className="min-h-11 rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900"
-          >
+          <select value={p.roomId ?? ""} disabled={busy} onChange={(e) => void patch({ roomId: e.target.value || null })} className={inputClass}>
             <option value="">Sans pièce</option>
             {rooms.data?.map((r) => (
               <option key={r.id} value={r.id}>
@@ -159,8 +171,6 @@ export default function PlantDetail({ id }: { id: string }) {
         </label>
       </Card>
 
-      <CareCard plantId={id} water={p.water} hasSheet={p.hasSheet} onChange={plant.reload} />
-
       {p.job && <SheetStatus job={p.job} busy={busy} onRetry={() => generate(false)} />}
 
       {editing && p.careSheet ? (
@@ -170,11 +180,11 @@ export default function PlantDetail({ id }: { id: string }) {
           <CareSheetView s={p.careSheet} />
           {!p.job && (
             <div className="flex gap-2">
-              <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => setEditing(true)}>
-                ✏️ Modifier
+              <Button variant="secondary" icon="pencil" className="flex-1" disabled={busy} onClick={() => setEditing(true)}>
+                Modifier
               </Button>
-              <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => generate(true)}>
-                🔄 Régénérer
+              <Button variant="secondary" icon="refresh" className="flex-1" disabled={busy} onClick={() => generate(true)}>
+                Régénérer
               </Button>
             </div>
           )}
@@ -182,17 +192,18 @@ export default function PlantDetail({ id }: { id: string }) {
       ) : (
         !p.job && (
           <Card title="Fiche d'entretien">
-            <p className="text-sm text-stone-600">
+            <p className="text-body-sm text-ink-muted">
               Claude peut rédiger une fiche simple à partir du nom{p.photoIds.length > 0 ? " et de la dernière photo" : ""} : arrosage, lumière, conseils.
             </p>
-            <Button disabled={busy} onClick={() => generate(false)}>
-              ✨ Générer la fiche
+            {/* Sans fiche, la carte d'arrosage n'a pas de bouton : ce bouton est alors le seul primary de l'écran. */}
+            <Button variant="primary" icon="sparkle" disabled={busy} onClick={() => generate(false)}>
+              Générer la fiche
             </Button>
           </Card>
         )
       )}
 
-      <Button variant="danger" disabled={busy} onClick={removePlant}>
+      <Button variant="danger" icon="trash" disabled={busy} onClick={removePlant}>
         Supprimer cette plante
       </Button>
     </Page>

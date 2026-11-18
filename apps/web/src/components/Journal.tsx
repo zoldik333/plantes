@@ -1,13 +1,21 @@
 import { useState } from "react";
 import type { CareEvent, CareEventType, WaterStatus } from "@plantes/shared";
 import { api } from "../lib/api";
-import { EVENT_LABELS, relativeDays, shortDateTime } from "../lib/dates";
+import { relativeDays, shortDateTime } from "../lib/dates";
 import { useFetch } from "../lib/fetch";
-import { Button, Card, Notice, useAction } from "./ui";
+import { Icon, type IconName } from "./Icon";
+import { Button, Card, Notice, buttonClass, inputClass, useAction } from "./ui";
 
-const field = "min-h-11 rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900 focus:border-leaf-600 focus:outline-none";
+/** Libellé et icône de chaque type d'entrée du journal. */
+const EVENTS: Record<CareEventType, { label: string; icon: IconName }> = {
+  watered: { label: "Arrosée", icon: "drop" },
+  still_wet: { label: "Encore humide", icon: "clock" },
+  fertilized: { label: "Engrais", icon: "sprout" },
+  repotted: { label: "Rempotage", icon: "pot" },
+  note: { label: "Note", icon: "note" },
+};
 
-/** Arrosage (état + boutons) et journal d'entretien d'une plante. */
+/** Arrosage (état + boutons, la carte sombre de la fiche) et journal d'entretien d'une plante. */
 export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: string; water: WaterStatus | null; hasSheet: boolean; onChange: () => void | Promise<void> }) {
   const events = useFetch<CareEvent[]>(`/api/plants/${plantId}/events`);
   const { busy, error, run } = useAction();
@@ -28,32 +36,41 @@ export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: stri
 
   return (
     <>
-      <Card title="💧 Arrosage">
+      <Card
+        tone="deep"
+        title={
+          <span className="flex items-center gap-2">
+            <Icon name="drop" />
+            Arrosage
+          </span>
+        }
+      >
         {water ? (
           <>
-            <p className={water.daysUntil <= 0 ? "font-semibold text-leaf-800" : "text-stone-700"}>
-              {water.daysUntil <= 0 ? "À arroser" : "Prochain arrosage"} : {relativeDays(water.daysUntil)}
-              {water.snoozed && <span className="text-stone-500"> (repoussé : encore humide)</span>}
+            <p className="text-display text-on-deep">
+              <span className="block text-label text-on-deep-muted">{water.daysUntil <= 0 ? "À arroser" : "Prochain arrosage"} :</span>{" "}
+              {relativeDays(water.daysUntil)}
             </p>
-            <p className="text-sm text-stone-500">
+            <p className="text-body-sm text-on-deep-muted">
               {water.lastWateredAt ? `Dernier arrosage : ${shortDateTime(water.lastWateredAt)}. ` : "Jamais arrosée depuis son ajout. "}
               Rythme actuel : tous les {water.intervalDays} jours.
+              {water.snoozed && " Repoussé : encore humide."}
             </p>
             <div className="flex gap-2">
-              <Button className="flex-1" disabled={busy} onClick={() => void add("watered")}>
-                💧 Arrosée
+              <Button variant="primary" icon="drop" className="flex-1" disabled={busy} onClick={() => void add("watered")}>
+                Arrosée
               </Button>
-              <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => void add("still_wet")}>
+              <Button variant="on-deep" className="flex-1" disabled={busy} onClick={() => void add("still_wet")}>
                 Encore humide
               </Button>
             </div>
-            <label className="flex flex-col gap-1 text-sm text-stone-600">
+            <label className="flex flex-col gap-1.5 text-label text-on-deep-muted">
               Oublié de cocher ? Arrosée plus tôt :
               <select
                 value=""
                 disabled={busy}
                 onChange={(e) => e.target.value && void add("watered", undefined, Number(e.target.value))}
-                className={field}
+                className={buttonClass("on-deep", "w-full *:bg-surface *:text-ink")}
               >
                 <option value="">Choisir…</option>
                 <option value="1">Hier</option>
@@ -64,53 +81,56 @@ export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: stri
             </label>
           </>
         ) : (
-          <Notice>{hasSheet ? "Pas d'intervalle d'arrosage dans la fiche." : "Pas de rappel pour cette plante : génère d'abord sa fiche d'entretien, elle contient le rythme d'arrosage."}</Notice>
+          <p className="text-body-sm text-on-deep-muted">
+            {hasSheet ? "Pas d'intervalle d'arrosage dans la fiche." : "Pas de rappel pour cette plante : génère d'abord sa fiche d'entretien, elle contient le rythme d'arrosage."}
+          </p>
         )}
         {error && <Notice kind="error">{error}</Notice>}
       </Card>
 
-      <Card title="📒 Journal d'entretien">
+      <Card title="Journal d'entretien">
         <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <select value={other} onChange={(e) => setOther(e.target.value as typeof other)} className={`${field} flex-1`}>
-              <option value="fertilized">{EVENT_LABELS.fertilized}</option>
-              <option value="repotted">{EVENT_LABELS.repotted}</option>
-              <option value="note">{EVENT_LABELS.note}</option>
-            </select>
-          </div>
+          <select aria-label="Type d'entrée" value={other} onChange={(e) => setOther(e.target.value as typeof other)} className={inputClass}>
+            <option value="fertilized">{EVENTS.fertilized.label}</option>
+            <option value="repotted">{EVENTS.repotted.label}</option>
+            <option value="note">{EVENTS.note.label}</option>
+          </select>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
             placeholder={other === "note" ? "Ta note (obligatoire)" : "Précision (facultatif)"}
-            className={field}
+            className={inputClass}
           />
           <Button
             variant="secondary"
+            icon="plus"
             disabled={busy || (other === "note" && !note.trim())}
-            onClick={() =>
-              void add(other, note.trim() || undefined).then(() => setNote(""))
-            }
+            onClick={() => void add(other, note.trim() || undefined).then(() => setNote(""))}
           >
             Ajouter au journal
           </Button>
         </div>
 
         {events.data?.length === 0 && <Notice>Rien pour l'instant. Chaque arrosage et chaque soin apparaîtra ici.</Notice>}
-        <ul className="flex flex-col divide-y divide-stone-100">
+        <ul className="flex flex-col divide-y divide-line">
           {events.data?.map((e) => (
-            <li key={e.id} className="flex items-start justify-between gap-2 py-2">
-              <span className="min-w-0">
-                <span className="font-medium">{EVENT_LABELS[e.type]}</span>
-                <span className="block text-sm text-stone-500">
+            <li key={e.id} className="flex items-center gap-3 py-3">
+              <span className={`flex size-10 shrink-0 items-center justify-center rounded-sm bg-surface-sunken ${e.type === "watered" ? "text-water" : "text-ink"}`}>
+                <Icon name={EVENTS[e.type].icon} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-label text-ink">{EVENTS[e.type].label}</span>
+                <span className="block text-caption text-ink-muted">
                   {shortDateTime(e.createdAt)} · {e.userName ?? "quelqu'un"}
                 </span>
-                {e.note && <span className="block break-words text-sm text-stone-700">{e.note}</span>}
+                {e.note && <span className="block text-body-sm break-words text-ink">{e.note}</span>}
               </span>
               <button
-                className="shrink-0 rounded-lg px-2 py-1 text-sm text-stone-500 underline disabled:opacity-50"
+                type="button"
+                className="min-h-12 shrink-0 rounded-full px-3 text-label text-ink-muted underline underline-offset-2 active:opacity-70 disabled:opacity-50"
                 disabled={busy}
-                aria-label={`Annuler cette entrée du journal : ${EVENT_LABELS[e.type]}`}
+                aria-label={`Annuler cette entrée du journal : ${EVENTS[e.type].label}`}
                 onClick={() => void undo(e.id)}
               >
                 Annuler

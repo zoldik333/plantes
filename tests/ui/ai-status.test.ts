@@ -55,7 +55,7 @@ describe("interface : état du jeton Claude", { skip: cannotRun }, () => {
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await page.getByRole("heading", { name: "Aujourd'hui" }).waitFor();
     await page.getByRole("link", { name: /Plantes/ }).click();
-    await page.getByRole("link", { name: "+ Ajouter" }).click();
+    await page.getByRole("link", { name: "Ajouter", exact: true }).click();
     await page.getByLabel("Nom", { exact: true }).fill("Pothos");
     await page.getByRole("button", { name: "Ajouter la plante" }).click();
     await page.waitForURL(/\/plants\/[a-f0-9]+$/);

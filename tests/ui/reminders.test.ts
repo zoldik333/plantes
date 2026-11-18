@@ -37,7 +37,7 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     assert.ok(await shown(page.getByText(/Active les notifications/)), "invitation à activer les notifications");
     for (const name of ["Calathea", "Pothos"]) {
       await page.getByRole("link", { name: /Plantes/ }).click();
-      await page.getByRole("link", { name: "+ Ajouter" }).click();
+      await page.getByRole("link", { name: "Ajouter", exact: true }).click();
       await page.getByLabel("Nom", { exact: true }).fill(name);
       await page.getByRole("button", { name: "Ajouter la plante" }).click();
       await page.waitForURL(/\/plants\/[a-f0-9]+$/);

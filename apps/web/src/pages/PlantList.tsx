@@ -1,20 +1,33 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import type { PlantSummary, Room } from "@plantes/shared";
-import { Notice, Page } from "../components/ui";
+import { Icon } from "../components/Icon";
+import { Chip, Notice, Page, PageHeader, Pill, PlantPlaceholder, buttonClass } from "../components/ui";
 import { useFetch, usePoll } from "../lib/fetch";
 import { photoUrl } from "../lib/photos";
 
 const NO_ROOM = "none";
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function PlantStatus({ p }: { p: PlantSummary }) {
   return (
-    <button
-      onClick={onClick}
-      className={`min-h-9 shrink-0 rounded-full px-3 text-sm font-medium ${active ? "bg-leaf-700 text-white" : "bg-white text-stone-700 ring-1 ring-black/10"}`}
-    >
-      {children}
-    </button>
+    <div className="flex flex-wrap gap-1.5">
+      {p.water && p.water.daysUntil <= 0 && (
+        <Pill tone="water" icon="drop">
+          À arroser
+        </Pill>
+      )}
+      {p.job && p.job.status !== "error" && (
+        <Pill tone="warning" icon="clock">
+          Fiche en cours
+        </Pill>
+      )}
+      {p.job?.status === "error" && (
+        <Pill tone="danger" icon="alert">
+          Fiche à relancer
+        </Pill>
+      )}
+      {!p.job && !p.hasSheet && <Pill>Pas de fiche</Pill>}
+    </div>
   );
 }
 
@@ -27,18 +40,23 @@ export default function PlantList() {
   const roomName = (id: string | null) => rooms.data?.find((r) => r.id === id)?.name;
   const shown = (plants.data ?? []).filter((p) => (filter === null ? true : filter === NO_ROOM ? p.roomId === null : p.roomId === filter));
   const hasUnassigned = (plants.data ?? []).some((p) => p.roomId === null);
+  const count = plants.data?.length;
 
   return (
     <Page>
-      <header className="flex items-center justify-between pt-2">
-        <h1 className="text-2xl font-bold text-leaf-800">Mes plantes</h1>
-        <Link href="/plants/new" className="flex min-h-11 items-center rounded-xl bg-leaf-700 px-4 font-medium text-white active:bg-leaf-800">
-          + Ajouter
-        </Link>
-      </header>
+      <PageHeader
+        overline={count !== undefined ? `${count} plante${count > 1 ? "s" : ""}` : undefined}
+        title="Mes plantes"
+        action={
+          <Link href="/plants/new" className={buttonClass("dark", "shrink-0")}>
+            <Icon name="plus" />
+            Ajouter
+          </Link>
+        }
+      />
 
       {(rooms.data?.length ?? 0) > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1">
           <Chip active={filter === null} onClick={() => setFilter(null)}>
             Toutes
           </Chip>
@@ -57,30 +75,25 @@ export default function PlantList() {
 
       {plants.error && <Notice kind="error">{plants.error}</Notice>}
       {plants.loading && !plants.data && <Notice>Chargement…</Notice>}
-      {plants.data?.length === 0 && (
-        <Notice>
-          Aucune plante pour l'instant. Appuie sur « + Ajouter » pour commencer.
-        </Notice>
-      )}
+      {plants.data?.length === 0 && <Notice>Aucune plante pour l'instant. Appuie sur « Ajouter » pour commencer.</Notice>}
 
       {(plants.data?.length ?? 0) > 0 && shown.length === 0 && <Notice>Aucune plante dans cette pièce.</Notice>}
 
       <ul className="grid grid-cols-2 gap-3">
         {shown.map((p) => (
           <li key={p.id}>
-            <Link href={`/plants/${p.id}`} className="block overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 active:opacity-80">
+            <Link href={`/plants/${p.id}`} className="flex h-full flex-col overflow-hidden rounded-lg bg-surface shadow-card active:opacity-80">
               {p.coverPhotoId ? (
                 <img src={photoUrl(p.coverPhotoId, true)} alt="" loading="lazy" className="aspect-square w-full object-cover" />
               ) : (
-                <div className="flex aspect-square w-full items-center justify-center bg-leaf-50 text-5xl">🪴</div>
+                <PlantPlaceholder className="aspect-square w-full" size={40} />
               )}
-              <div className="p-3">
-                <p className="truncate font-semibold text-stone-900">{p.name}</p>
-                <p className="truncate text-sm text-stone-500">{roomName(p.roomId) ?? "Sans pièce"}</p>
-                {p.water && p.water.daysUntil <= 0 && <p className="mt-1 text-xs font-semibold text-leaf-700">💧 À arroser</p>}
-                {p.job && p.job.status !== "error" && <p className="mt-1 text-xs font-medium text-leaf-700">⏳ Fiche en cours…</p>}
-                {p.job?.status === "error" && <p className="mt-1 text-xs font-medium text-red-700">⚠️ Fiche à relancer</p>}
-                {!p.job && !p.hasSheet && <p className="mt-1 text-xs text-stone-400">Pas de fiche</p>}
+              <div className="flex flex-col gap-2 p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-body font-bold text-ink">{p.name}</p>
+                  <p className="truncate text-body-sm text-ink-muted">{roomName(p.roomId) ?? "Sans pièce"}</p>
+                </div>
+                <PlantStatus p={p} />
               </div>
             </Link>
           </li>

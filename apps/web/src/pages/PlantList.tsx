@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import type { PlantSummary, Room } from "@plantes/shared";
 import { Notice, Page } from "../components/ui";
-import { useFetch } from "../lib/fetch";
+import { useFetch, usePoll } from "../lib/fetch";
 import { photoUrl } from "../lib/photos";
 
 const NO_ROOM = "none";
@@ -22,6 +22,7 @@ export default function PlantList() {
   const plants = useFetch<PlantSummary[]>("/api/plants");
   const rooms = useFetch<Room[]>("/api/rooms");
   const [filter, setFilter] = useState<string | null>(null);
+  usePoll((plants.data ?? []).some((p) => p.job && p.job.status !== "error"), () => void plants.reload(), 4000);
 
   const roomName = (id: string | null) => rooms.data?.find((r) => r.id === id)?.name;
   const shown = (plants.data ?? []).filter((p) => (filter === null ? true : filter === NO_ROOM ? p.roomId === null : p.roomId === filter));
@@ -62,6 +63,8 @@ export default function PlantList() {
         </Notice>
       )}
 
+      {(plants.data?.length ?? 0) > 0 && shown.length === 0 && <Notice>Aucune plante dans cette pièce.</Notice>}
+
       <ul className="grid grid-cols-2 gap-3">
         {shown.map((p) => (
           <li key={p.id}>
@@ -74,6 +77,9 @@ export default function PlantList() {
               <div className="p-3">
                 <p className="truncate font-semibold text-stone-900">{p.name}</p>
                 <p className="truncate text-sm text-stone-500">{roomName(p.roomId) ?? "Sans pièce"}</p>
+                {p.job && p.job.status !== "error" && <p className="mt-1 text-xs font-medium text-leaf-700">⏳ Fiche en cours…</p>}
+                {p.job?.status === "error" && <p className="mt-1 text-xs font-medium text-red-700">⚠️ Fiche à relancer</p>}
+                {!p.job && !p.hasSheet && <p className="mt-1 text-xs text-stone-400">Pas de fiche</p>}
               </div>
             </Link>
           </li>

@@ -23,3 +23,12 @@ export function useFetch<T>(path: string) {
 
   return { ...state, reload: load };
 }
+
+/** Appelle `fn` toutes les `ms` millisecondes tant que `active` est vrai (suivi d'une génération en cours). */
+export function usePoll(active: boolean, fn: () => void, ms = 3000) {
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(fn, ms);
+    return () => clearInterval(id);
+  }, [active, fn, ms]);
+}

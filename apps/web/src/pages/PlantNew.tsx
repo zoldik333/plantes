@@ -12,6 +12,7 @@ export default function PlantNew() {
   const { busy, error, run } = useAction();
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
+  const [withSheet, setWithSheet] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -26,6 +27,8 @@ export default function PlantNew() {
           /* la plante existe déjà : on pourra rajouter la photo depuis sa fiche */
         }
       }
+      // La génération démarre après l'envoi de la photo, pour que l'IA la voie.
+      if (withSheet) await api(`/api/plants/${plant.id}/care-sheet`, { method: "POST" }).catch(() => {});
       navigate(`/plants/${plant.id}`);
     });
   };
@@ -71,6 +74,13 @@ export default function PlantNew() {
             />
           </label>
           {preview && <img src={preview} alt="Aperçu" className="max-h-60 rounded-xl object-cover" />}
+          <label className="flex items-start gap-2 text-sm text-stone-700">
+            <input type="checkbox" checked={withSheet} onChange={(e) => setWithSheet(e.target.checked)} className="mt-1 size-5" />
+            <span>
+              Générer la fiche d'entretien avec Claude
+              <span className="block text-stone-500">Prête en 15 à 30 secondes ; tu peux la corriger ensuite.</span>
+            </span>
+          </label>
           {error && <Notice kind="error">{error}</Notice>}
           <Button type="submit" disabled={busy || !name.trim()}>
             {busy ? "Création…" : "Ajouter la plante"}

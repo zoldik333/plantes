@@ -10,6 +10,8 @@ interface Options {
   /** Dossier vide servant de répertoire de travail à Claude Code (aucun fichier n'y est lu). */
   workDir: string;
   debug?: boolean;
+  /** Durée maximale d'un appel (ms) : au-delà, le sous-processus est interrompu. */
+  timeoutMs?: number;
 }
 
 /**
@@ -73,6 +75,9 @@ export class ClaudeAgentSdkProvider implements AiProvider {
     // (L'option env REMPLACE l'environnement du sous-processus, d'où le spread.)
     const { ANTHROPIC_API_KEY: _ignored, ...env } = process.env;
 
+    const abortController = new AbortController();
+    const timer = setTimeout(() => abortController.abort(), this.opts.timeoutMs ?? 180_000);
+
     let structured: unknown;
     let resultText: string | undefined;
     let failure: string | undefined;
@@ -89,6 +94,7 @@ export class ClaudeAgentSdkProvider implements AiProvider {
           settingSources: [],
           maxTurns: 4,
           cwd: this.opts.workDir,
+          abortController,
           env,
           outputFormat: { type: "json_schema", schema: careSheetJsonSchema },
         },
@@ -109,7 +115,10 @@ export class ClaudeAgentSdkProvider implements AiProvider {
         }
       }
     } catch (err) {
+      if (abortController.signal.aborted) throw new AiProviderError("Délai dépassé : l'IA n'a pas répondu à temps");
       throw new AiProviderError(`Échec de l'appel Agent SDK${failure ? ` (${failure})` : ""}`, String(err));
+    } finally {
+      clearTimeout(timer);
     }
 
     if (failure) throw new AiProviderError(`L'agent s'est arrêté en erreur : ${failure}`);

@@ -58,12 +58,16 @@ Pièges rencontrés :
 - **Pièces, plantes, photos (étape 4)** : tables `rooms`, `plants` (fiche d'entretien en JSON, validée par `CareSheet` de `@plantes/shared`), `plant_photos`. Routes `/api/rooms`, `/api/plants`, `/api/photos/:id`, toutes derrière `requireMember` et **filtrées par `householdId`** (un id d'un autre foyer = 404) ; test d'accès croisé entre deux foyers (39 vérifications). Supprimer une pièce laisse ses plantes « sans pièce » ; supprimer une plante supprime ses fichiers.
   - Photos : ré-encodées par `sharp` (`apps/api/src/lib/photos.ts`) : rotation EXIF appliquée, **EXIF/GPS supprimés**, 1600 px + vignette 400 px, JPEG. Stockées dans `DATA_DIR/photos/<foyer>/<id>.jpg` et `.thumb.jpg`, servies uniquement avec session (`Cache-Control: private`). Limite 8 Mo, 20 photos par plante, 300 plantes, 50 pièces par foyer. `sharp` n'a pas besoin d'être dans `onlyBuiltDependencies` (binaires fournis).
   - **Sauvegardes : la base seule est sauvegardée, pas `photos/`** (à couvrir avec la copie hors machine).
-  - Front : onglets Plantes / Pièces / Réglages (`components/Shell.tsx`), liste filtrable par pièce, fiche plante (photos, nom, pièce, suppression). La « Fiche d'entretien » IA reste dans Réglages (labo) jusqu'à l'étape 5.
+  - Front : onglets Plantes / Pièces / Réglages (`components/Shell.tsx`), liste filtrable par pièce, fiche plante (photos, nom, pièce, suppression).
+- **Génération de fiche par l'IA (étape 5)** : rattachée à la **plante** (créée d'abord, avec sa photo ; la fiche arrive ensuite), pas à une requête qui attend. Table `care_sheet_jobs` (une ligne par plante, supprimée quand la fiche est enregistrée), file dans `apps/api/src/care-sheet-queue.ts` : **1 génération à la fois**, limite de 5 actives par foyer, délai max 3 min par appel (`AI_TIMEOUT_MS`), les générations « en cours » repartent au redémarrage du serveur. `POST /api/plants/:id/care-sheet` lance ou relance (idempotent) ; l'état (`job`: pending/running/error + `ahead`) est dans la liste et la fiche des plantes ; le front interroge toutes les 3-4 s tant qu'une génération est active. Fiche modifiable (`CareSheetEditor`) et régénérable (avec confirmation : écrase les modifications). L'ancienne route synchrone `/api/care-sheet` n'existe plus.
+  - `AI_PROVIDER=fake` (+ `AI_FAKE_DELAY_MS`) : fournisseur factice pour tester la file sans consommer l'abonnement (un nom contenant « ECHEC » échoue). Ne jamais le mettre en production.
+- **Tests** : les contrôles automatiques (curl pour l'API et la file, Playwright + Chrome pour l'interface et les passkeys avec authentificateur virtuel) ont été écrits dans le scratchpad de session et ne sont **pas versionnés**. Ce qui reste à vérifier à la main (iPhone, IA réelle, exploitation) est dans `TESTS-MANUELS.md`.
 
 ## Prochaines étapes
 1. Étape 3 : passkeys validées sur l'iPhone en production (confirmé par Théo le 17/11/2026).
-2. Étape 5 : ajout par l'IA en tâche de fond (nom + photo → fiche proposée, modifiable avant enregistrement, 1 appel à la fois). Étape 6 : rappels et journal (les abonnements push sont déjà liés à `user_id`). Étape 7 : interface au fil des étapes.
-3. À durcir : limite de débit sur l'API (Caddy), sauvegarde hors machine.
+2. Étape 6 : rappels d'arrosage (intervalles été/hiver de `careSheet.watering`, « Arrosé » / « Encore humide », une notification par jour et par personne, un membre coche → les autres ne sont plus relancés) et journal d'entretien. Les abonnements push sont déjà liés à `user_id` ; `sendToAll` est à remplacer par un envoi ciblé par foyer. Étape 7 : interface au fil des étapes.
+3. Dérouler `TESTS-MANUELS.md` (notamment notification écran verrouillé, photos HEIC et portrait, qualité des fiches).
+4. À durcir : limite de débit sur l'API (Caddy), sauvegarde hors machine (base **et** `photos/`).
 
 ## Façon de travailler avec Théo
 - Pas de formules creuses ni de paragraphe d'introduction : commencer par l'essentiel.

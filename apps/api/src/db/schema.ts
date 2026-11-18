@@ -98,3 +98,21 @@ export const plantPhotos = sqliteTable("plant_photos", {
     .references(() => households.id, { onDelete: "cascade" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
 });
+
+/**
+ * File des générations de fiche par l'IA (une ligne par plante, supprimée quand la fiche est enregistrée).
+ * Persistée pour survivre à un redémarrage du serveur.
+ */
+export const careSheetJobs = sqliteTable("care_sheet_jobs", {
+  id: text("id").primaryKey(),
+  plantId: text("plant_id")
+    .notNull()
+    .unique()
+    .references(() => plants.id, { onDelete: "cascade" }),
+  householdId: text("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["pending", "running", "error"] }).notNull().default("pending"),
+  error: text("error"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+});

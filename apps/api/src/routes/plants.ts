@@ -1,7 +1,8 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { PlantInput, PlantUpdate, type PlantDetail, type PlantSummary } from "@plantes/shared";
+import { PlantInput, PlantUpdate, type PlantDetail, type PlantSummary, type SheetJob } from "@plantes/shared";
+import { MAX_ACTIVE_PER_HOUSEHOLD, activeCount, enqueue, jobsOf } from "../care-sheet-queue.js";
 import { db } from "../db/instance.js";
 import { plantPhotos, plants, rooms } from "../db/schema.js";
 import { deletePhotoFiles, isPhotoId, readPhoto, savePhoto } from "../lib/photos.js";
@@ -25,8 +26,13 @@ const roomBelongs = (householdId: string, roomId: string) =>
 const photoIdsOf = (plantId: string) =>
   db.select({ id: plantPhotos.id }).from(plantPhotos).where(eq(plantPhotos.plantId, plantId)).orderBy(desc(plantPhotos.createdAt)).all().map((p) => p.id);
 
-function summary(p: PlantRow, coverPhotoId: string | null): PlantSummary {
-  return { id: p.id, name: p.name, roomId: p.roomId, coverPhotoId, createdAt: p.createdAt.toISOString() };
+function summary(
+  p: Pick<PlantRow, "id" | "name" | "roomId" | "createdAt">,
+  coverPhotoId: string | null,
+  hasSheet: boolean,
+  job: SheetJob | null,
+): PlantSummary {
+  return { id: p.id, name: p.name, roomId: p.roomId, coverPhotoId, hasSheet, job, createdAt: p.createdAt.toISOString() };
 }
 
 export const plantsRoutes = new Hono<AuthEnv>();
@@ -39,8 +45,15 @@ plantsRoutes.get("/", (c) => {
   for (const ph of db.select().from(plantPhotos).where(eq(plantPhotos.householdId, householdId)).orderBy(desc(plantPhotos.createdAt)).all()) {
     if (!cover.has(ph.plantId)) cover.set(ph.plantId, ph.id);
   }
-  const list = db.select().from(plants).where(eq(plants.householdId, householdId)).orderBy(plants.name).all();
-  return c.json(list.map((p) => summary(p, cover.get(p.id) ?? null)));
+  const jobs = jobsOf(householdId);
+  // On ne lit pas les fiches elles-mêmes (volumineuses) : seulement leur présence.
+  const list = db
+    .select({ id: plants.id, name: plants.name, roomId: plants.roomId, createdAt: plants.createdAt, hasSheet: sql<number>`${plants.careSheet} is not null` })
+    .from(plants)
+    .where(eq(plants.householdId, householdId))
+    .orderBy(plants.name)
+    .all();
+  return c.json(list.map((p) => summary(p, cover.get(p.id) ?? null, !!p.hasSheet, jobs.get(p.id) ?? null)));
 });
 
 plantsRoutes.post("/", async (c) => {
@@ -54,14 +67,18 @@ plantsRoutes.post("/", async (c) => {
   const row = { id: newId(), householdId, roomId: roomId ?? null, name, careSheet: careSheet ?? null, createdBy: c.get("user").id };
   db.insert(plants).values(row).run();
   const created = ownedPlant(householdId, row.id)!;
-  return c.json(summary(created, null), 201);
+  return c.json(summary(created, null, created.careSheet != null, null), 201);
 });
 
 plantsRoutes.get("/:id", (c) => {
   const p = ownedPlant(c.get("householdId"), c.req.param("id"));
   if (!p) return c.json({ error: "Plante introuvable" }, 404);
   const photoIds = photoIdsOf(p.id);
-  const detail: PlantDetail = { ...summary(p, photoIds[0] ?? null), careSheet: p.careSheet ?? null, photoIds };
+  const detail: PlantDetail = {
+    ...summary(p, photoIds[0] ?? null, p.careSheet != null, jobsOf(p.householdId).get(p.id) ?? null),
+    careSheet: p.careSheet ?? null,
+    photoIds,
+  };
   return c.json(detail);
 });
 
@@ -92,6 +109,21 @@ plantsRoutes.delete("/:id", async (c) => {
   db.delete(plants).where(eq(plants.id, p.id)).run(); // les lignes de photos partent en cascade
   await Promise.all(photoIds.map((id) => deletePhotoFiles(householdId, id)));
   return c.json({ ok: true });
+});
+
+/** Lance (ou relance après une erreur) la génération de la fiche par l'IA ; la plante est lue avec sa dernière photo. */
+plantsRoutes.post("/:id/care-sheet", (c) => {
+  const householdId = c.get("householdId");
+  const p = ownedPlant(householdId, c.req.param("id"));
+  if (!p) return c.json({ error: "Plante introuvable" }, 404);
+  const current = jobsOf(householdId).get(p.id);
+  if (!current || current.status === "error") {
+    if (activeCount(householdId) >= MAX_ACTIVE_PER_HOUSEHOLD) {
+      return c.json({ error: `Déjà ${MAX_ACTIVE_PER_HOUSEHOLD} fiches en cours de génération : patiente un instant.` }, 429);
+    }
+    enqueue(p.id, householdId);
+  }
+  return c.json(jobsOf(householdId).get(p.id), 202);
 });
 
 plantsRoutes.post(

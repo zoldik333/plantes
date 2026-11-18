@@ -1,7 +1,6 @@
 import { Button, Page } from "../components/ui";
 import { authClient } from "../lib/auth-client";
 import { useMe, type Me } from "../lib/me";
-import { CareSheetCard } from "./home/CareSheetCard";
 import { HouseholdCard } from "./home/HouseholdCard";
 import { NotificationsCard } from "./home/NotificationsCard";
 import { PasskeysCard } from "./home/PasskeysCard";
@@ -35,7 +34,6 @@ export default function Settings({ me }: { me: Me }) {
       <HouseholdCard me={me} />
       <PasskeysCard />
       <NotificationsCard />
-      <CareSheetCard />
     </Page>
   );
 }

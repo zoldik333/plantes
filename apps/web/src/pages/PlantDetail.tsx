@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import type { PlantDetail as Plant, Room } from "@plantes/shared";
+import type { CareSheet, PlantDetail as Plant, Room } from "@plantes/shared";
 import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
 import { api } from "../lib/api";
-import { useFetch } from "../lib/fetch";
+import { useFetch, usePoll } from "../lib/fetch";
 import { photoUrl, uploadPhoto } from "../lib/photos";
-import { Sheet } from "./home/CareSheetCard";
+import { CareSheetEditor } from "../components/CareSheetEditor";
+import { CareSheetView } from "../components/CareSheetView";
+import { SheetStatus } from "../components/SheetStatus";
 
 export default function PlantDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
@@ -14,8 +16,11 @@ export default function PlantDetail({ id }: { id: string }) {
   const { busy, error, run } = useAction();
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const p = plant.data;
+  // Tant qu'une génération est en file ou en cours, on rafraîchit la fiche toutes les 3 s.
+  usePoll(!!p?.job && p.job.status !== "error", () => void plant.reload());
   useEffect(() => {
     if (p) setName(p.name);
   }, [p?.name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -49,6 +54,21 @@ export default function PlantDetail({ id }: { id: string }) {
   const addPhoto = (file: File) =>
     run(async () => {
       setSelected(await uploadPhoto(id, file));
+      await plant.reload();
+    });
+
+  const generate = (replace: boolean) => {
+    if (replace && !window.confirm("Générer une nouvelle fiche remplace la fiche actuelle, y compris tes modifications. Continuer ?")) return;
+    void run(async () => {
+      await api(`/api/plants/${id}/care-sheet`, { method: "POST" });
+      await plant.reload();
+    });
+  };
+
+  const saveSheet = (careSheet: CareSheet) =>
+    void run(async () => {
+      await api(`/api/plants/${id}`, { method: "PATCH", json: { careSheet } });
+      setEditing(false);
       await plant.reload();
     });
 
@@ -136,7 +156,36 @@ export default function PlantDetail({ id }: { id: string }) {
         </label>
       </Card>
 
-      {p.careSheet ? <Sheet s={p.careSheet} /> : <Notice>Pas encore de fiche d'entretien : la génération par l'IA arrive à l'étape suivante.</Notice>}
+      {p.job && <SheetStatus job={p.job} busy={busy} onRetry={() => generate(false)} />}
+
+      {editing && p.careSheet ? (
+        <CareSheetEditor sheet={p.careSheet} busy={busy} onSave={saveSheet} onCancel={() => setEditing(false)} />
+      ) : p.careSheet ? (
+        <>
+          <CareSheetView s={p.careSheet} />
+          {!p.job && (
+            <div className="flex gap-2">
+              <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => setEditing(true)}>
+                ✏️ Modifier
+              </Button>
+              <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => generate(true)}>
+                🔄 Régénérer
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        !p.job && (
+          <Card title="Fiche d'entretien">
+            <p className="text-sm text-stone-600">
+              Claude peut rédiger une fiche simple à partir du nom{p.photoIds.length > 0 ? " et de la dernière photo" : ""} : arrosage, lumière, conseils.
+            </p>
+            <Button disabled={busy} onClick={() => generate(false)}>
+              ✨ Générer la fiche
+            </Button>
+          </Card>
+        )
+      )}
 
       <Button variant="danger" disabled={busy} onClick={removePlant}>
         Supprimer cette plante

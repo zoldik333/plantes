@@ -1,8 +1,9 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { AiProviderError, createAiProvider, type ImageMediaType } from "./ai/index.js";
+import { ai } from "./ai/instance.js";
 import { APP_URL, auth } from "./auth.js";
+import { startQueue } from "./care-sheet-queue.js";
 import { scheduleBackups } from "./db/backup.js";
 import { DATA_DIR, db } from "./db/instance.js";
 import { PushService } from "./push.js";
@@ -16,14 +17,13 @@ const PORT = Number(process.env.PORT ?? 3000);
 const ACCESS_KEY = process.env.POC_ACCESS_KEY;
 /** Build du front (apps/web/dist), relatif au dossier de travail apps/api. */
 const WEB_DIR = process.env.WEB_DIR ?? "../web/dist";
-const MAX_PHOTO_BYTES = 3.5 * 1024 * 1024;
 
 if (!ACCESS_KEY || ACCESS_KEY.length < 12) {
   throw new Error("POC_ACCESS_KEY manquante ou trop courte (12 caractères minimum).");
 }
 
-const ai = createAiProvider();
 scheduleBackups(db, DATA_DIR);
+startQueue();
 const push = new PushService(db, `${DATA_DIR}/subscriptions.json`);
 const app = new Hono<AuthEnv>();
 
@@ -71,33 +71,6 @@ app.post("/api/push/test", requireMember, async (c) => {
       .catch((err) => console.error("[push]", err));
   }, delay * 1000);
   return c.json({ ok: true, delaySeconds: delay });
-});
-
-app.post("/api/care-sheet", requireMember, async (c) => {
-  const body = await c.req.parseBody();
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const photo = body.photo instanceof File && body.photo.size > 0 ? body.photo : undefined;
-  if (!name) return c.json({ error: "Nom de plante manquant" }, 400);
-  if (photo) {
-    if (photo.size > MAX_PHOTO_BYTES) return c.json({ error: "Photo trop lourde (max 3,5 Mo)" }, 413);
-    const allowed: ImageMediaType[] = ["image/jpeg", "image/png", "image/webp"];
-    if (!allowed.includes(photo.type as ImageMediaType)) {
-      return c.json({ error: `Format non pris en charge : ${photo.type}` }, 415);
-    }
-  }
-
-  try {
-    const result = await ai.generateCareSheet({
-      plantName: name,
-      photo: photo && { data: Buffer.from(await photo.arrayBuffer()), mediaType: photo.type as ImageMediaType },
-    });
-    console.log(`[ai] fiche « ${name} » en ${result.durationMs} ms`);
-    return c.json(result);
-  } catch (err) {
-    console.error("[ai]", err);
-    const details = err instanceof AiProviderError ? err.details : undefined;
-    return c.json({ error: (err as Error).message, details }, 502);
-  }
 });
 
 app.get("/health", (c) => c.json({ ok: true, ai: ai.name }));

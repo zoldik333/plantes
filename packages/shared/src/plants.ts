@@ -24,12 +24,25 @@ export interface Room {
   plantCount: number;
 }
 
+export type SheetJobStatus = "pending" | "running" | "error";
+
+/** Génération de fiche par l'IA, rattachée à une plante. Absente quand rien n'est en cours. */
+export interface SheetJob {
+  status: SheetJobStatus;
+  /** Message affiché si la génération a échoué. */
+  error: string | null;
+  /** En attente : nombre de générations (de tout le serveur) qui passent avant celle-ci. */
+  ahead: number;
+}
+
 export interface PlantSummary {
   id: string;
   name: string;
   roomId: string | null;
   /** Dernière photo (vignette), si la plante en a. */
   coverPhotoId: string | null;
+  hasSheet: boolean;
+  job: SheetJob | null;
   createdAt: string;
 }
 

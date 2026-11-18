@@ -14,9 +14,9 @@ export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: stri
   const [other, setOther] = useState<Exclude<CareEventType, "watered" | "still_wet">>("fertilized");
   const [note, setNote] = useState("");
 
-  const add = (type: CareEventType, text?: string) =>
+  const add = (type: CareEventType, text?: string, daysAgo?: number) =>
     run(async () => {
-      await api(`/api/plants/${plantId}/events`, { method: "POST", json: { type, ...(text ? { note: text } : {}) } });
+      await api(`/api/plants/${plantId}/events`, { method: "POST", json: { type, ...(text ? { note: text } : {}), ...(daysAgo ? { daysAgo } : {}) } });
       await Promise.all([events.reload(), onChange()]);
     });
 
@@ -47,6 +47,21 @@ export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: stri
                 Encore humide
               </Button>
             </div>
+            <label className="flex flex-col gap-1 text-sm text-stone-600">
+              Oublié de cocher ? Arrosée plus tôt :
+              <select
+                value=""
+                disabled={busy}
+                onChange={(e) => e.target.value && void add("watered", undefined, Number(e.target.value))}
+                className={field}
+              >
+                <option value="">Choisir…</option>
+                <option value="1">Hier</option>
+                <option value="2">Il y a 2 jours</option>
+                <option value="3">Il y a 3 jours</option>
+                <option value="7">Il y a une semaine</option>
+              </select>
+            </label>
           </>
         ) : (
           <Notice>{hasSheet ? "Pas d'intervalle d'arrosage dans la fiche." : "Pas de rappel pour cette plante : génère d'abord sa fiche d'entretien, elle contient le rythme d'arrosage."}</Notice>
@@ -92,7 +107,12 @@ export function CareCard({ plantId, water, hasSheet, onChange }: { plantId: stri
                 </span>
                 {e.note && <span className="block break-words text-sm text-stone-700">{e.note}</span>}
               </span>
-              <button className="shrink-0 rounded-lg px-2 py-1 text-sm text-stone-500 underline disabled:opacity-50" disabled={busy} onClick={() => void undo(e.id)}>
+              <button
+                className="shrink-0 rounded-lg px-2 py-1 text-sm text-stone-500 underline disabled:opacity-50"
+                disabled={busy}
+                aria-label={`Annuler cette entrée du journal : ${EVENT_LABELS[e.type]}`}
+                onClick={() => void undo(e.id)}
+              >
                 Annuler
               </button>
             </li>

@@ -1,42 +1,28 @@
-import { appendFileSync, existsSync, readFileSync, renameSync } from "node:fs";
-import { eq, inArray } from "drizzle-orm";
+import { appendFileSync } from "node:fs";
+import { eq, inArray, isNull } from "drizzle-orm";
 import webpush, { type PushSubscription } from "web-push";
 import type { Db } from "./db/index.js";
 import { pushSubscriptions } from "./db/schema.js";
 
 export class PushService {
-  constructor(
-    private readonly db: Db,
-    legacyFile?: string,
-  ) {
+  constructor(private readonly db: Db) {
     const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
       throw new Error("VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY manquantes : lance `pnpm vapid`.");
     }
     // Apple exige un subject valide (mailto: ou https:).
     webpush.setVapidDetails(VAPID_SUBJECT ?? "mailto:admin@example.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-    if (legacyFile) this.importLegacy(legacyFile);
+    // Un abonnement sans compte (d'avant l'étape 3) ne peut recevoir aucun rappel : on le supprime.
+    const orphans = this.db.delete(pushSubscriptions).where(isNull(pushSubscriptions.userId)).run().changes;
+    if (orphans > 0) console.log(`[push] ${orphans} abonnement(s) sans compte supprimé(s)`);
   }
 
   get publicKey(): string {
     return process.env.VAPID_PUBLIC_KEY!;
   }
 
-  /** Reprend une fois les abonnements du POC (fichier JSON), puis renomme le fichier. */
-  private importLegacy(file: string): void {
-    if (!existsSync(file)) return;
-    try {
-      const subs: PushSubscription[] = JSON.parse(readFileSync(file, "utf8"));
-      for (const s of subs) this.upsert(s);
-      renameSync(file, `${file}.migrated`);
-      console.log(`[push] ${subs.length} abonnement(s) importé(s) depuis ${file}`);
-    } catch (err) {
-      console.error("[push] import de l'ancien fichier impossible", err);
-    }
-  }
-
-  private upsert(sub: PushSubscription, userId?: string): void {
-    const row = { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, ...(userId && { userId }) };
+  private upsert(sub: PushSubscription, userId: string): void {
+    const row = { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, userId };
     this.db
       .insert(pushSubscriptions)
       .values(row)

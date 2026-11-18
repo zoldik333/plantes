@@ -13,8 +13,8 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 | File de génération : ordre, une seule à la fois, erreur puis relance, suppression en cours, limite de 5 par foyer, reprise après arrêt brutal du serveur | `curl` avec IA factice, 34 contrôles | 18/11/2026 |
 | Interface complète dans Chrome (viewport iPhone) : inscription, pièces, ajout avec photo, génération, édition, filtre, régénération, suppression, invitation, **passkeys (authentificateur virtuel)**, mot de passe oublié | Playwright, 29 contrôles | 18/11/2026 |
 | Rappels d'arrosage : calcul (saisons, « encore humide », annulation), créneaux 9 h / 18 h, relance seulement si nécessaire, pas de doublon, rattrapage, heure d'été et d'hiver, aucun message vers un autre foyer ou un abonnement sans compte | script avec horloge injectée, 44 contrôles | 18/11/2026 |
-| Journal d'entretien, « Aujourd'hui », rappel de test, accès croisé entre foyers | `curl`, 41 contrôles | 18/11/2026 |
-| Interface « Aujourd'hui » : arroser, annuler, « encore humide », journal, un membre coche et l'autre le voit, rappel de test | Playwright, 25 contrôles (+ 29 de non-régression) | 18/11/2026 |
+| Journal d'entretien, arrosage daté (valeurs interdites comprises), « Aujourd'hui », rappel de test, accès croisé entre foyers | `curl`, 55 contrôles | 18/11/2026 |
+| Interface « Aujourd'hui » : arroser, annuler, « encore humide », journal, un membre coche et l'autre le voit, rappel de test | Playwright, 30 contrôles (+ 29 de non-régression) | 18/11/2026 |
 | IA réelle : photo qui correspond, nom seul, photo qui ne correspond pas au nom (`nameMatchesPhoto: false`) | 3 générations réelles | 18/11/2026 |
 | Image Docker x86_64 (`sharp`, migrations, front) | construite et lancée sur `node1` | 17/11/2026 |
 
@@ -110,7 +110,9 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 - [ ] **Relance de 18 h** : si la plante n'a pas été arrosée, une notification « Toujours à arroser : … » arrive à 18 h ; **si elle a été cochée dans la journée, aucune notification à 18 h.**
 - [ ] **Un membre coche, l'autre n'est plus relancé** *(deux téléphones)* : A coche une plante à 14 h. *Attendu : B ne reçoit pas de relance à 18 h pour cette plante, et voit « Rien à arroser » en ouvrant l'app.*
 - [ ] **Au plus une notification par créneau et par personne** : sur 2 jours, compter les notifications reçues. *Attendu : 1 à 9 h, 1 à 18 h seulement s'il reste des plantes ; jamais de doublon.*
-- [ ] **Plantes jamais arrosées depuis leur ajout** : le premier rappel arrive un intervalle après l'ajout. *À juger : est-ce le bon comportement pour une plante qu'on vient d'acheter ? Sinon, proposer « Arrosée » à la création.*
+- [ ] **Dernier arrosage à l'ajout d'une plante** : ajouter une plante réellement arrosée il y a une semaine, en choisissant « Il y a environ une semaine ». *Attendu : un arrosage daté d'il y a 7 jours dans son journal, et un rappel qui arrive au bon moment (pas un intervalle complet plus tard). Avec « plus de deux semaines (ou je ne sais pas) » : la plante est à arroser tout de suite.*
+- [ ] **« Oublié de cocher ? Arrosée plus tôt »** (fiche d'une plante) : choisir « Hier ». *Attendu : l'arrosage apparaît à sa vraie date dans le journal, et l'échéance est recalculée.*
+- [ ] **Abonnement sans compte supprimé** (une seule fois, au premier démarrage après la mise à jour) : le journal du serveur contient `[push] 1 abonnement(s) sans compte supprimé(s)`, et tes notifications fonctionnent toujours (« M'envoyer une notification dans 10 s »).
 - [ ] **« Encore humide »** : le rappel est repoussé de 2 à 7 jours (un quart de l'intervalle). *À juger sur un mois : est-ce trop court ou trop long ? Les valeurs se règlent dans `apps/api/src/lib/watering.ts` (`postponeDays`).*
 - [ ] **Annuler une erreur de clic** : cocher « Arrosée » par erreur, appuyer sur « Annuler » dans le bandeau (10 s), puis le refaire plus tard depuis le journal de la plante. *Attendu : la plante redevient à arroser.*
 - [ ] **Intervalles du rythme** : comparer le rythme proposé par l'IA avec ton expérience sur 5 plantes. Corriger dans la fiche (« Modifier ») : *Attendu : le prochain arrosage est recalculé tout de suite.*

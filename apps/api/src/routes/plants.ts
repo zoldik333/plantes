@@ -143,7 +143,16 @@ plantsRoutes.post("/:id/events", async (c) => {
   if ("res" in body) return body.res;
   const total = db.select({ n: count() }).from(careEvents).where(eq(careEvents.plantId, p.id)).get()?.n ?? 0;
   if (total >= MAX_NOTE_EVENTS) return c.json({ error: "Journal plein pour cette plante" }, 400);
-  const event = { id: newId(), plantId: p.id, householdId, userId: c.get("user").id, type: body.data.type, note: body.data.note || null };
+  const { daysAgo } = body.data;
+  const event = {
+    id: newId(),
+    plantId: p.id,
+    householdId,
+    userId: c.get("user").id,
+    type: body.data.type,
+    note: body.data.note || null,
+    ...(daysAgo ? { createdAt: new Date(Date.now() - daysAgo * 86_400_000) } : {}),
+  };
   db.insert(careEvents).values(event).run();
   return c.json({ id: event.id, water: waterStatuses(householdId).get(p.id) ?? null }, 201);
 });

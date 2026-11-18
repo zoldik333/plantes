@@ -27,13 +27,18 @@ export interface Room {
 export const CARE_EVENT_TYPES = ["watered", "still_wet", "fertilized", "repotted", "note"] as const;
 export type CareEventType = (typeof CARE_EVENT_TYPES)[number];
 
-/** Une action du journal d'entretien. La note n'est obligatoire que pour le type « note ». */
+/**
+ * Une action du journal d'entretien. La note n'est obligatoire que pour le type « note ».
+ * `daysAgo` date un arrosage passé (oublié, ou antérieur à l'ajout de la plante) : 0 à 60 jours.
+ */
 export const EventInput = z
   .object({
     type: z.enum(CARE_EVENT_TYPES),
     note: z.string().trim().max(500).optional(),
+    daysAgo: z.number().int().min(0).max(60).optional(),
   })
-  .refine((e) => e.type !== "note" || !!e.note, { message: "Écris ta note", path: ["note"] });
+  .refine((e) => e.type !== "note" || !!e.note, { message: "Écris ta note", path: ["note"] })
+  .refine((e) => e.daysAgo === undefined || e.type === "watered", { message: "Seul un arrosage peut être daté dans le passé", path: ["daysAgo"] });
 export type EventInput = z.infer<typeof EventInput>;
 
 export interface CareEvent {

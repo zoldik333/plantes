@@ -13,6 +13,7 @@ export default function PlantNew() {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
   const [withSheet, setWithSheet] = useState(true);
+  const [watered, setWatered] = useState("0");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -27,6 +28,8 @@ export default function PlantNew() {
           /* la plante existe déjà : on pourra rajouter la photo depuis sa fiche */
         }
       }
+      // Dernier arrosage : sans lui, le premier rappel n'arriverait qu'un intervalle complet après l'ajout.
+      await api(`/api/plants/${plant.id}/events`, { method: "POST", json: { type: "watered", daysAgo: Number(watered) } }).catch(() => {});
       // La génération démarre après l'envoi de la photo, pour que l'IA la voie.
       if (withSheet) await api(`/api/plants/${plant.id}/care-sheet`, { method: "POST" }).catch(() => {});
       navigate(`/plants/${plant.id}`);
@@ -74,6 +77,16 @@ export default function PlantNew() {
             />
           </label>
           {preview && <img src={preview} alt="Aperçu" className="max-h-60 rounded-xl object-cover" />}
+          <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
+            Dernier arrosage
+            <select value={watered} onChange={(e) => setWatered(e.target.value)} className="min-h-11 rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900">
+              <option value="0">Aujourd'hui</option>
+              <option value="2">Il y a 2 ou 3 jours</option>
+              <option value="7">Il y a environ une semaine</option>
+              <option value="14">Il y a plus de deux semaines (ou je ne sais pas)</option>
+            </select>
+            <span className="font-normal text-stone-500">Le rappel d'arrosage s'en déduit.</span>
+          </label>
           <label className="flex items-start gap-2 text-sm text-stone-700">
             <input type="checkbox" checked={withSheet} onChange={(e) => setWithSheet(e.target.checked)} className="mt-1 size-5" />
             <span>

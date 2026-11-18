@@ -26,7 +26,7 @@ if (!ACCESS_KEY || ACCESS_KEY.length < 12) {
 
 scheduleBackups(db, DATA_DIR);
 startQueue();
-const push = new PushService(db, `${DATA_DIR}/subscriptions.json`);
+const push = new PushService(db);
 startReminderScheduler(push);
 const app = new Hono<AuthEnv>();
 

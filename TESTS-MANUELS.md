@@ -73,6 +73,16 @@ Cases non cochées, en attente d'une date ou d'une configuration :
 - [x] **Deux personnes en même temps** : A ajoute une plante pendant que B regarde la liste. *Attendu : B la voit après un rechargement (pas de temps réel prévu).*
 - [x] **Confort tactile** : boutons assez grands, rien de coupé sous la barre d'accueil de l'iPhone, clavier qui ne masque pas le champ saisi.
 
+### Tirer pour actualiser, foyer à jour (sur iPhone, PWA installée)
+
+- [ ] **Geste** : sur « Mon foyer » (Réglages), depuis le haut de la page, tirer vers le bas avec un doigt. *Attendu : une pastille verte suit le doigt (« Tire pour actualiser », puis « Relâche pour actualiser »), à relâcher « Actualisation… » s'affiche environ une demi-seconde, et la liste est à jour.*
+- [ ] **Deux appareils** : inviter quelqu'un, le laisser créer son compte, puis tirer sur l'autre téléphone. *Attendu : il apparaît dans « Mon foyer » sans relancer l'app (et seul, sans geste, au bout de 30 secondes ou en rouvrant l'app).*
+- [ ] **Pas de conflit avec le défilement** : faire défiler une longue page (Réglages, liste de plantes) vers le bas puis vers le haut ; tirer en cours de page. *Attendu : aucune actualisation parasite ; le rebond d'iOS en haut de page ne gêne pas.*
+- [ ] **Listes horizontales** : faire défiler les pastilles de pièces (Plantes) à l'horizontale. *Attendu : aucune actualisation.*
+- [ ] **Encoche et barre d'état** : l'indicateur n'est pas masqué par l'encoche (iPhone récent), lisible, sans décalage de la page.
+- [ ] **Chaque écran** : essayer sur Aujourd'hui, Plantes, une fiche de plante (journal), Pièces, Réglages. *Attendu : chacun se recharge (une plante arrosée sur l'autre téléphone apparaît à jour).*
+- [ ] **Depuis un champ de saisie** (ex. « Nouvelle pièce ») : tirer depuis le champ ne doit rien déclencher.
+
 ## D. Fiche d'entretien par l'IA (la vraie)
 
 - [x] **Nom seul, plante courante** (« Pothos ») : *Attendu : fiche en 15 à 30 s, plausible, sans jargon, intervalles d'arrosage cohérents.*

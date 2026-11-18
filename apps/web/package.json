@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@better-auth/passkey": "^1.7.25",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@plantes/shared": "workspace:*",
     "better-auth": "^1.7.25",
     "react": "^19.3.1",

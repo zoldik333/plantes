@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../../components/Icon";
 import { Button, Card, LinkBox, Notice, useAction } from "../../components/ui";
 import { api } from "../../lib/api";
 import type { Me } from "../../lib/me";
@@ -26,17 +27,24 @@ export function HouseholdCard({ me }: { me: Me }) {
     });
 
   return (
-    <Card title={`🏠 ${me.household.name}`}>
-      <ul className="flex flex-col divide-y divide-stone-100">
+    <Card
+      title={
+        <span className="flex items-center gap-2">
+          <Icon name="users" className="text-leaf" />
+          {me.household.name}
+        </span>
+      }
+    >
+      <ul className="flex flex-col divide-y divide-line">
         {me.household.members.map((m) => (
-          <li key={m.id} className="flex items-center justify-between gap-2 py-2">
-            <span>
-              <span className="font-medium">{m.name}</span>
-              {m.id === me.user.id && <span className="ml-1 text-sm text-stone-500">(toi)</span>}
-              <span className="block text-sm text-stone-500">{m.email}</span>
+          <li key={m.id} className="flex items-center justify-between gap-3 py-3">
+            <span className="min-w-0">
+              <span className="text-label text-ink">{m.name}</span>
+              {m.id === me.user.id && <span className="ml-1 text-body-sm text-ink-muted">(toi)</span>}
+              <span className="block truncate text-body-sm text-ink-muted">{m.email}</span>
             </span>
             {m.id !== me.user.id && (
-              <Button variant="secondary" className="min-h-9 px-3 py-1 text-sm" disabled={busy} onClick={() => createReset(m.id, m.name)}>
+              <Button variant="secondary" icon="key" className="shrink-0 px-4 text-label" disabled={busy} onClick={() => createReset(m.id, m.name)}>
                 Mot de passe oublié
               </Button>
             )}
@@ -49,8 +57,8 @@ export function HouseholdCard({ me }: { me: Me }) {
           hint={`Envoie ce lien à ${reset.name} : il lui permet de choisir un nouveau mot de passe. Valable jusqu'au ${fmt(reset.link.expiresAt)}, à usage unique.`}
         />
       )}
-      <Button variant="secondary" onClick={createInvite} disabled={busy}>
-        ➕ Inviter quelqu'un
+      <Button variant="secondary" icon="plus" onClick={createInvite} disabled={busy}>
+        Inviter quelqu'un
       </Button>
       {invite && (
         <LinkBox url={invite.url} hint={`Lien à usage unique, valable jusqu'au ${fmt(invite.expiresAt)}. Il donne accès à tout le foyer.`} />

@@ -37,7 +37,7 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     assert.ok(await shown(page.getByText(/Active les notifications/)), "invitation à activer les notifications");
     for (const name of ["Calathea", "Pothos"]) {
       await page.getByRole("link", { name: /Plantes/ }).click();
-      await page.getByRole("link", { name: "+ Ajouter" }).click();
+      await page.getByRole("link", { name: "Ajouter", exact: true }).click();
       await page.getByLabel("Nom", { exact: true }).fill(name);
       await page.getByRole("button", { name: "Ajouter la plante" }).click();
       await page.waitForURL(/\/plants\/[a-f0-9]+$/);
@@ -76,10 +76,10 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
   it("fiche d'une plante : arrosage repoussé, journal, note vide impossible, note et engrais ajoutés puis annulés", async () => {
     await page.getByRole("link", { name: /Plantes/ }).click();
     assert.ok(await shown(page.getByText("Pothos")), "la liste est chargée");
-    assert.ok(await countIs(page.getByText("💧 À arroser"), 0), "aucun badge dans la liste");
+    assert.ok(await countIs(page.getByText("À arroser", { exact: true }), 0), "aucun badge dans la liste");
     await page.getByText("Pothos").click();
     await page.getByText(/repoussé : encore humide/).waitFor();
-    assert.ok(await shown(page.getByText("🌫️ Encore humide")), "l'action figure dans le journal");
+    assert.ok(await shown(page.locator("li").getByText("Encore humide", { exact: true })), "l'action figure dans le journal");
 
     await journalSelect().selectOption("note");
     assert.ok(await shown(page.getByPlaceholder("Ta note (obligatoire)")));
@@ -93,7 +93,7 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     await page.getByPlaceholder(/Précision/).fill("Demi-dose");
     await page.getByRole("button", { name: "Ajouter au journal" }).click();
     await page.getByText("Demi-dose").waitFor();
-    assert.ok(await shown(page.locator("li", { has: page.getByText("Demi-dose") }).getByText("🧪 Engrais")), "engrais avec sa précision");
+    assert.ok(await shown(page.locator("li", { has: page.getByText("Demi-dose") }).getByText("Engrais", { exact: true })), "engrais avec sa précision");
     await shot(page, "23-journal");
 
     await page.locator("li", { has: page.getByText("Feuille jaunie à gauche") }).getByRole("button", { name: "Annuler" }).click();
@@ -104,11 +104,11 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     await page.getByRole("link", { name: /Plantes/ }).click();
     await page.getByText("Calathea").click();
     await page.getByText(/Prochain arrosage/).waitFor();
-    await page.locator("li", { has: page.getByText("💧 Arrosée") }).first().getByRole("button", { name: "Annuler" }).click();
+    await page.locator("li", { has: page.getByText("Arrosée", { exact: true }) }).first().getByRole("button", { name: "Annuler" }).click();
     await page.getByText(/À arroser : en retard/).waitFor();
     await page.getByRole("link", { name: /Plantes/ }).click();
-    await page.getByText("💧 À arroser").waitFor();
-    assert.ok(await countIs(page.getByText("💧 À arroser"), 1), "un seul badge : la Calathea");
+    await page.getByText("À arroser", { exact: true }).waitFor();
+    assert.ok(await countIs(page.getByText("À arroser", { exact: true }), 1), "un seul badge : la Calathea");
     await shot(page, "24-liste-badge");
   });
 
@@ -164,11 +164,11 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
       await page.getByText(/Tous les\s+7 jours/).waitFor({ timeout: 20_000 });
     };
     await addPlant("Ficus", "Il y a environ une semaine");
-    assert.ok(await shown(page.getByText("💧 Arrosée")), "un arrosage figure dans le journal du Ficus");
+    assert.ok(await shown(page.locator("li").getByText("Arrosée", { exact: true }).first()), "un arrosage figure dans le journal du Ficus");
     assert.ok(await shown(page.getByText(/Prochain arrosage|À arroser/)), "état d'arrosage déduit");
     await shot(page, "26-ficus-semaine");
     await page.locator("label", { hasText: "Oublié de cocher" }).locator("select").selectOption({ label: "Hier" });
-    await page.waitForFunction(() => [...document.querySelectorAll("li")].filter((l) => l.textContent?.includes("💧 Arrosée")).length >= 2);
+    await page.waitForFunction(() => [...document.querySelectorAll("li")].filter((l) => l.textContent?.includes("Arrosée")).length >= 2);
 
     await addPlant("Cactus", "Il y a plus de deux semaines (ou je ne sais pas)");
     assert.ok(await shown(page.getByText(/À arroser :/)), "le Cactus est à arroser tout de suite");

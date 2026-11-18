@@ -1,16 +1,24 @@
 import { useState } from "react";
 import type { CareSheet } from "@plantes/shared";
-import { Button, Card, Field, Notice } from "./ui";
+import { Icon, type IconName } from "./Icon";
+import { Button, Card, Field, Notice, inputClass, labelClass } from "./ui";
 import { LIGHT_LABELS } from "./CareSheetView";
-
-const field = "min-h-11 rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900 focus:border-leaf-600 focus:outline-none";
 
 function Area({ label, value, onChange, rows = 2 }: { label: string; value: string; onChange: (v: string) => void; rows?: number }) {
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
+    <label className={labelClass}>
       {label}
-      <textarea value={value} rows={rows} onChange={(e) => onChange(e.target.value)} className={`${field} py-2`} />
+      <textarea value={value} rows={rows} onChange={(e) => onChange(e.target.value)} className={`${inputClass} py-3`} />
     </label>
+  );
+}
+
+function Subtitle({ icon, children }: { icon?: IconName; children: string }) {
+  return (
+    <h3 className="flex items-center gap-2 pt-2 text-label text-ink">
+      {icon && <Icon name={icon} />}
+      {children}
+    </h3>
   );
 }
 
@@ -42,19 +50,19 @@ export function CareSheetEditor({
   };
 
   return (
-    <Card title="✏️ Modifier la fiche">
+    <Card title="Modifier la fiche">
       <Field label="Nom courant" value={s.commonName} onChange={(e) => set({ commonName: e.target.value })} />
       <Field label="Nom scientifique" value={s.scientificName} onChange={(e) => set({ scientificName: e.target.value })} />
-      <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
+      <label className={labelClass}>
         Difficulté
-        <select value={s.difficulty} onChange={(e) => set({ difficulty: e.target.value as CareSheet["difficulty"] })} className={field}>
+        <select value={s.difficulty} onChange={(e) => set({ difficulty: e.target.value as CareSheet["difficulty"] })} className={inputClass}>
           <option value="facile">Facile</option>
           <option value="moyenne">Moyenne</option>
           <option value="difficile">Difficile</option>
         </select>
       </label>
 
-      <h3 className="pt-2 font-semibold text-leaf-800">💧 Arrosage</h3>
+      <Subtitle icon="drop">Arrosage</Subtitle>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Été (jours)" type="number" inputMode="numeric" min={1} max={60} value={s.watering.intervalDaysSummer} onChange={(e) => setWater({ intervalDaysSummer: Number(e.target.value) })} />
         <Field label="Hiver (jours)" type="number" inputMode="numeric" min={1} max={90} value={s.watering.intervalDaysWinter} onChange={(e) => setWater({ intervalDaysWinter: Number(e.target.value) })} />
@@ -62,8 +70,13 @@ export function CareSheetEditor({
       <Area label="Comment savoir quand arroser" value={s.watering.method} onChange={(v) => setWater({ method: v })} />
       <Area label="Signes d'un mauvais arrosage" value={s.watering.signs} onChange={(v) => setWater({ signs: v })} />
 
-      <h3 className="pt-2 font-semibold text-leaf-800">☀️ Lumière</h3>
-      <select value={s.light.need} onChange={(e) => set({ light: { ...s.light, need: e.target.value as CareSheet["light"]["need"] } })} className={field}>
+      <Subtitle icon="sun">Lumière</Subtitle>
+      <select
+        aria-label="Besoin en lumière"
+        value={s.light.need}
+        onChange={(e) => set({ light: { ...s.light, need: e.target.value as CareSheet["light"]["need"] } })}
+        className={inputClass}
+      >
         {Object.entries(LIGHT_LABELS).map(([k, label]) => (
           <option key={k} value={k}>
             {label}
@@ -72,7 +85,7 @@ export function CareSheetEditor({
       </select>
       <Area label="Où la placer" value={s.light.details} onChange={(v) => set({ light: { ...s.light, details: v } })} />
 
-      <h3 className="pt-2 font-semibold text-leaf-800">Le reste</h3>
+      <Subtitle>Le reste</Subtitle>
       <Area label="Humidité" value={s.extras.humidity} onChange={(v) => setExtra("humidity", v)} />
       <Area label="Température" value={s.extras.temperature} onChange={(v) => setExtra("temperature", v)} />
       <Area label="Engrais" value={s.extras.fertilizer} onChange={(v) => setExtra("fertilizer", v)} />
@@ -82,7 +95,7 @@ export function CareSheetEditor({
 
       {error && <Notice kind="error">{error}</Notice>}
       <div className="flex gap-2">
-        <Button onClick={save} disabled={busy} className="flex-1">
+        <Button variant="dark" icon="check" onClick={save} disabled={busy} className="flex-1">
           Enregistrer
         </Button>
         <Button variant="secondary" onClick={onCancel} disabled={busy} className="flex-1">

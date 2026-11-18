@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../../components/Icon";
 import { Button, Card, Notice, useAction } from "../../components/ui";
 import { api } from "../../lib/api";
 import { enablePush, sendTestPush } from "../../lib/push";
@@ -8,8 +9,21 @@ export function NotificationsCard() {
   const [status, setStatus] = useState<string | null>(null);
 
   return (
-    <Card title="🔔 Notifications">
+    <Card
+      title={
+        <span className="flex items-center gap-2">
+          <Icon name="bell" className="text-leaf" />
+          Notifications
+        </span>
+      }
+    >
+      <p className="text-body-sm text-ink-muted">
+        Rappels à 9 h, et une relance à 18 h seulement s'il reste des plantes à arroser. Dès qu'un membre du foyer coche une plante, personne n'est
+        plus relancé pour elle.
+      </p>
       <Button
+        variant="primary"
+        icon="bell"
         disabled={busy}
         onClick={() =>
           void run(async () => {
@@ -22,6 +36,7 @@ export function NotificationsCard() {
       </Button>
       <Button
         variant="secondary"
+        icon="clock"
         disabled={busy}
         onClick={() =>
           void run(async () => {
@@ -34,6 +49,7 @@ export function NotificationsCard() {
       </Button>
       <Button
         variant="secondary"
+        icon="drop"
         disabled={busy}
         onClick={() =>
           void run(async () => {
@@ -48,7 +64,6 @@ export function NotificationsCard() {
       >
         Tester le vrai rappel
       </Button>
-      <p className="text-sm text-stone-600">Rappels à 9 h, et une relance à 18 h seulement s'il reste des plantes à arroser. Dès qu'un membre du foyer coche une plante, personne n'est plus relancé pour elle.</p>
       {status && <Notice kind="ok">{status}</Notice>}
       {error && <Notice kind="error">{error}</Notice>}
     </Card>

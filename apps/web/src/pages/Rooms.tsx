@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { Room } from "@plantes/shared";
-import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
+import { Icon } from "../components/Icon";
+import { Button, Card, Field, Notice, Page, PageHeader, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { useFetch } from "../lib/fetch";
 
@@ -38,53 +39,60 @@ export default function Rooms() {
 
   return (
     <Page>
-      <h1 className="pt-2 text-2xl font-bold text-leaf-800">Pièces</h1>
+      <PageHeader title="Pièces" />
       <Card>
         <form onSubmit={add} className="flex items-end gap-2">
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <Field label="Nouvelle pièce" placeholder="ex. Salon, Cuisine…" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />
           </div>
-          <Button type="submit" disabled={busy || !name.trim()}>
+          <Button type="submit" variant="primary" icon="plus" disabled={busy || !name.trim()}>
             Ajouter
           </Button>
         </form>
         {error && <Notice kind="error">{error}</Notice>}
       </Card>
 
-      {rooms.data?.length === 0 && <Notice>Aucune pièce. Crée celles où tu as des plantes pour les retrouver facilement.</Notice>}
-      <ul className="flex flex-col gap-2">
+      {rooms.data?.length === 0 && <Notice icon="home">Aucune pièce. Crée celles où tu as des plantes pour les retrouver facilement.</Notice>}
+      <ul className="flex flex-col gap-3">
         {rooms.data?.map((r) => (
-          <li key={r.id} className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
-            {editing?.id === r.id ? (
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
+          <li key={r.id}>
+            <Card>
+              {editing?.id === r.id ? (
+                <>
                   <Field label="Nom" value={editing.name} onChange={(e) => setEditing({ id: r.id, name: e.target.value })} maxLength={40} />
-                </div>
-                <Button disabled={busy || !editing.name.trim()} onClick={rename}>
-                  OK
-                </Button>
-                <Button variant="secondary" onClick={() => setEditing(null)}>
-                  Annuler
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-2">
-                <span>
-                  <span className="font-semibold">{r.name}</span>
-                  <span className="block text-sm text-stone-500">
-                    {r.plantCount} plante{r.plantCount > 1 ? "s" : ""}
-                  </span>
-                </span>
-                <span className="flex gap-2">
-                  <Button variant="secondary" className="min-h-9 px-3 py-1 text-sm" onClick={() => setEditing({ id: r.id, name: r.name })}>
-                    Renommer
-                  </Button>
-                  <Button variant="danger" className="min-h-9 px-3 py-1 text-sm" disabled={busy} onClick={() => remove(r)}>
-                    Supprimer
-                  </Button>
-                </span>
-              </div>
-            )}
+                  <div className="flex gap-2">
+                    <Button variant="dark" icon="check" className="flex-1" disabled={busy || !editing.name.trim()} onClick={rename}>
+                      OK
+                    </Button>
+                    <Button variant="secondary" className="flex-1" onClick={() => setEditing(null)}>
+                      Annuler
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-sm bg-leaf-soft text-leaf">
+                      <Icon name="home" />
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-title text-ink">{r.name}</span>
+                      <span className="text-body-sm text-ink-muted">
+                        {r.plantCount} plante{r.plantCount > 1 ? "s" : ""}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" icon="pencil" className="flex-1" onClick={() => setEditing({ id: r.id, name: r.name })}>
+                      Renommer
+                    </Button>
+                    <Button variant="danger" icon="trash" className="flex-1" disabled={busy} onClick={() => remove(r)}>
+                      Supprimer
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
           </li>
         ))}
       </ul>

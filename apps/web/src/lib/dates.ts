@@ -1,4 +1,3 @@
-import type { CareEventType } from "@plantes/shared";
 
 /** « en retard de 3 jours », « aujourd'hui », « demain », « dans 4 jours ». */
 export function relativeDays(daysUntil: number): string {
@@ -19,10 +18,3 @@ export function shortDateTime(iso: string): string {
   return `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}, ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-export const EVENT_LABELS: Record<CareEventType, string> = {
-  watered: "💧 Arrosée",
-  still_wet: "🌫️ Encore humide",
-  fertilized: "🧪 Engrais",
-  repotted: "🪴 Rempotage",
-  note: "📝 Note",
-};

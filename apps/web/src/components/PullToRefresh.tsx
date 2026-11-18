@@ -96,8 +96,8 @@ export function PullToRefresh() {
       aria-hidden={mode === "refreshing" ? undefined : true}
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex -translate-y-14 justify-center pt-[calc(env(safe-area-inset-top)+0.5rem)] opacity-0"
     >
-      <div className="flex items-center gap-2 rounded-full bg-leaf-700 px-4 py-2 text-sm font-medium text-white shadow-md">
-        <span className={`inline-block size-4 rounded-full border-2 border-white/40 border-t-white ${mode === "refreshing" ? "animate-spin" : ""}`} />
+      <div className="flex items-center gap-2 rounded-full bg-surface-deep px-4 py-2 text-label text-on-deep shadow-float">
+        <span className={`inline-block size-4 rounded-full border-2 border-on-deep/30 border-t-accent ${mode === "refreshing" ? "animate-spin" : ""}`} />
         {LABELS[mode] || LABELS.pulling}
       </div>
     </div>

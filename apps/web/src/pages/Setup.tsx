@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Card, Field, Notice, Page } from "../components/ui";
-import { SignupForm } from "./SignupForm";
+import { Card, Field, Notice } from "../components/ui";
+import { SignupForm, WelcomePage } from "./SignupForm";
 
 /** Création du tout premier compte (et du foyer) : exige la clé d'installation du serveur. */
 export default function Setup() {
   const [key, setKey] = useState("");
   return (
-    <Page>
-      <h1 className="pt-6 text-center text-3xl font-bold text-leaf-800">🌿 Plantes</h1>
+    <WelcomePage>
       <Card title="Premier compte">
         <Notice>Cette étape crée ton foyer. Elle est réservée à la personne qui administre le serveur.</Notice>
         <SignupForm
@@ -24,6 +23,6 @@ export default function Setup() {
           }
         />
       </Card>
-    </Page>
+    </WelcomePage>
   );
 }

@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 import { ai } from "./ai/instance.js";
 import { APP_URL, auth } from "./auth.js";
 import { startQueue } from "./care-sheet-queue.js";
@@ -29,6 +30,34 @@ startQueue();
 const push = new PushService(db);
 startReminderScheduler(push);
 const app = new Hono<AuthEnv>();
+
+// En-têtes de sécurité sur toutes les réponses. Le front n'a ni script ni style en ligne, ni ressource externe :
+// la politique CSP peut donc être stricte (blob: pour l'aperçu d'une photo choisie, avant envoi).
+app.use(
+  "*",
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", "blob:", "data:"],
+      connectSrc: ["'self'"],
+      manifestSrc: ["'self'"],
+      workerSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+    strictTransportSecurity: "max-age=31536000", // sans includeSubDomains : le domaine a d'autres usages possibles
+    xFrameOptions: "DENY",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    permissionsPolicy: { camera: [], microphone: [], geolocation: [], payment: [], usb: [] },
+    // Pas de Cross-Origin-Resource-Policy : iOS récupère le manifeste et les icônes hors d'une page web.
+    crossOriginResourcePolicy: false,
+  }),
+);
 
 // Les requêtes qui modifient des données doivent venir de notre propre origine (défense CSRF en plus de SameSite).
 const appOrigin = new URL(APP_URL).origin;

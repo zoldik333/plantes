@@ -68,7 +68,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - name: Construire l'image (sans la publier)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: plantes-smoke:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Vérifier que l'image démarre et fonctionne
+        run: sh scripts/smoke-image.sh plantes-smoke:ci
+      - name: Publier l'image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -76,4 +87,3 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max

@@ -1,3 +1,10 @@
+# Rotation des journaux : sans limite, Docker les laisse grossir indéfiniment (3 × 10 Mo par conteneur au plus).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
     # Image construite par la CI ; `docker compose up --build` la reconstruit en local si besoin.
@@ -10,6 +17,7 @@ services:
       - plantes-data:/app/data
     ports:
       - "127.0.0.1:3000:3000" # accès local pour le debug uniquement
+    logging: *logging
     restart: unless-stopped
 
   # Reverse proxy HTTPS : certificat Let's Encrypt obtenu et renouvelé automatiquement.
@@ -26,6 +34,7 @@ services:
       - caddy-config:/config
     depends_on:
       - app
+    logging: *logging
     restart: unless-stopped
 
 volumes:

@@ -70,6 +70,14 @@ Pièges rencontrés :
   - Tests : `PUSH_DRY_RUN_FILE=<fichier>` écrit les notifications dans un fichier au lieu de les envoyer (**tests uniquement**).
   - Pas encore fait : apprentissage de l'intervalle d'après les « encore humide » ; réglage de l'heure par personne ; désactivation des rappels par personne (désabonner l'appareil suffit).
 
+- **Solidité (audit du 18/11/2026)** :
+  - **En-têtes de sécurité** dans l'app (`secureHeaders` de Hono, `server.ts`) : CSP stricte (`'self'` partout, `blob:` et `data:` pour les images, `frame-ancestors 'none'`, jamais d'`unsafe-inline`), HSTS d'un an sans `includeSubDomains`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`. Pas de `Cross-Origin-Resource-Policy` (iOS récupère manifeste et icônes hors page). Toute violation CSP fait échouer les tests d'interface (erreur de console). Toute nouvelle source (script, police, image externe) exige de modifier la politique.
+  - **Journaux** : rotation Docker (3 × 10 Mo par conteneur, `x-logging` dans `compose.yaml`) ; `scripts/deploy.sh` ne journalise que les changements et plafonne `~/plantes-deploy.log` à 1 Mo (testé : `tests/unit/deploy-script.test.ts`).
+  - **Surveillance** : `HEARTBEAT_URL` (facultatif) : le planificateur appelle cette URL toutes les 5 min tant que la base répond ; un service externe (healthchecks.io) alerte si les appels cessent. Non couvert : expiration du jeton Claude (visible seulement par des échecs de génération).
+  - **Image** : Dockerfile en deux étapes, dépendances de production seulement (`pnpm install --prod --filter @plantes/api...`), `tsx` en dépendance de production. `scripts/smoke-image.sh` démarre l'image et la contrôle ; la CI le lance **avant** de publier. Reste dans l'image sans effet : `drizzle-kit` (pair optionnel de better-auth) et `react`.
+  - **Dépendances** : `@hono/node-server` 2.x (avis GHSA-rmxm-3fg6-px4f), SDK Claude **figé** à `0.3.326` (une mise à jour peut casser la génération : tester avant), `pnpm.overrides` force `esbuild` ≥ 0.25 pour `@esbuild-kit/core-utils` (avis GHSA-67mh-4wv8-2f99). `pnpm audit --prod` : aucune vulnérabilité connue.
+  - **Reste ouvert** : sauvegardes hors machine (volontairement reportées), exposition IPv6 des autres services de `node1` (à tester depuis la 4G), 2FA et protection de `main` sur GitHub (le push sur `main` est exécuté chez toi).
+
 ## Prochaines étapes
 1. Étape 3 : passkeys validées sur l'iPhone en production (confirmé par Théo le 17/11/2026).
 2. Dérouler `TESTS-MANUELS.md` (notamment notification écran verrouillé, premier rappel réel à 9 h, photos HEIC et portrait, qualité des fiches).

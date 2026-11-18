@@ -90,14 +90,43 @@ export async function sendReminderTest(push: PushService, userId: string, househ
   return { plants: names.length, ...res };
 }
 
-/** Vérifie chaque minute s'il faut envoyer le rappel. */
+/**
+ * Signale « je suis vivant » à un service de surveillance externe (ex. healthchecks.io). Ne lève jamais d'erreur :
+ * un service de surveillance injoignable ne doit pas gêner l'application.
+ */
+export async function pingHeartbeat(url: string, timeoutMs = 10_000): Promise<boolean> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+const HEARTBEAT_EVERY_MS = 5 * 60_000;
+
+/**
+ * Vérifie chaque minute s'il faut envoyer le rappel. Si HEARTBEAT_URL est défini, signale aussi toutes les 5 minutes
+ * que le planificateur tourne ET que la base répond (le signal n'est pas envoyé si le traitement échoue) : un service
+ * externe qui ne reçoit plus rien prévient de la panne.
+ */
 export function startReminderScheduler(push: PushService): void {
+  const heartbeatUrl = process.env.HEARTBEAT_URL;
   let busy = false;
+  let lastPing = 0;
+  let heartbeatDown = false;
   const tick = async () => {
     if (busy) return;
     busy = true;
     try {
       await runReminders(push);
+      if (heartbeatUrl && Date.now() - lastPing >= HEARTBEAT_EVERY_MS) {
+        lastPing = Date.now();
+        const ok = await pingHeartbeat(heartbeatUrl);
+        if (!ok && !heartbeatDown) console.error("[surveillance] le signal « je suis vivant » n'a pas pu être envoyé");
+        if (ok && heartbeatDown) console.log("[surveillance] signal rétabli");
+        heartbeatDown = !ok;
+      }
     } catch (err) {
       console.error("[rappel]", err);
     } finally {

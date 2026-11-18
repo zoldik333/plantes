@@ -40,6 +40,7 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 - [ ] **Mode Concentration / Ne pas déranger** : activer, relancer un test. *Attendu : pas de notification sonore, mais elle apparaît dans le centre de notifications à la sortie du mode.*
 - [ ] **Deux appareils** : activer sur un second téléphone du foyer. *Attendu : « 2 appareils abonnés », les deux reçoivent le test.*
 - [ ] **Après plusieurs jours** : l'abonnement iOS peut disparaître. Relancer un test 3 à 4 jours plus tard sans rouvrir l'app. *Attendu : notification reçue ; sinon noter au bout de combien de temps (important pour l'étape 6).*
+- [ ] **La page se charge normalement avec la politique de sécurité stricte (CSP)** : depuis l'écran d'accueil de l'iPhone, parcourir Aujourd'hui, Plantes, une fiche avec photo, Pièces, Réglages. *Attendu : aucun écran blanc, images visibles, boutons réactifs. Les tests Chrome le garantissent, mais pas Safari/iOS.*
 - [ ] **Mise à jour de la PWA** : après un déploiement, fermer complètement l'app et la rouvrir. *Attendu : la nouvelle version s'affiche (pas d'écran blanc, pas d'ancienne interface).*
 
 ## B. Comptes et connexion
@@ -94,6 +95,13 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 - [ ] **Place disque** : après quelques mois, `docker system df` et la taille du volume `plantes-data`.
 - [ ] **Journal du déploiement** : `~/plantes-deploy.log` ne grossit pas anormalement (pas de rotation prévue).
 - [ ] **Mémoire** : pendant une génération, `free -h` sur `node1` (3,7 Go au total, d'autres services y tournent). *Attendu : pas de swap excessif ni de conteneur tué (`docker ps` après).*
+
+### Surveillance et exploitation (nouveautés)
+
+- [ ] **Alerte de disparition** : créer un « check » sur healthchecks.io (période 10 min, délai de grâce 10 min, alerte par e-mail), copier son URL dans `HEARTBEAT_URL` du `.env` de `node1`, relancer (`docker compose up -d`). *Attendu : le check passe au vert en moins de 5 minutes.* Puis `docker compose stop app` : *attendu : e-mail d'alerte au bout d'environ 20 minutes.* Relancer ensuite.
+- [ ] **En-têtes de sécurité en production** : `curl -sI https://plantes.tvermorel.fr/ | grep -iE "strict-transport|content-security|x-frame|x-content-type"`. *Attendu : les quatre présents.* (Attention : HSTS est mémorisé un an par les navigateurs.)
+- [ ] **Rotation des journaux** : après quelques semaines, `docker inspect plantes-app-1 --format '{{.HostConfig.LogConfig}}'` indique `max-size:10m max-file:3`, et `~/plantes-deploy.log` ne dépasse pas 1 Mo.
+- [ ] **Mise à jour du SDK Claude** : il est figé. Pour le mettre à jour : changer la version dans `apps/api/package.json`, `pnpm install`, `pnpm test`, puis **une vraie génération** (`pnpm test:ai`) avant de pousser.
 
 ### Pannes à provoquer (pour voir que l'app réagit proprement)
 

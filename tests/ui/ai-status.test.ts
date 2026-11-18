@@ -112,14 +112,14 @@ describe("interface : état du jeton Claude", { skip: cannotRun }, () => {
       assert.ok(await countIs(page.getByText(/Réglages\)/), 0));
     }
     await visit("/settings", /Connecté en tant que/);
-    assert.ok(await countIs(page.getByText("🔑 Jeton Claude"), 0), "pas de carte");
+    assert.ok(await countIs(page.getByText("Jeton Claude"), 0), "pas de carte");
     await mock({ ...base, isOwner: false });
     for (const [name, path, ready] of PAGES) {
       await visit(path(), ready);
       assert.ok(await countIs(page.locator("[role=alert], [role=status]"), 0), `aucun bandeau d'expiration sur ${name}`);
     }
     await visit("/settings", /Connecté en tant que/);
-    assert.ok(await countIs(page.getByText("🔑 Jeton Claude"), 0), "pas de carte");
+    assert.ok(await countIs(page.getByText("Jeton Claude"), 0), "pas de carte");
   });
 
   it("jeton valable encore 200 jours : aucun bandeau, mais la carte est là pour le propriétaire", async () => {
@@ -129,7 +129,7 @@ describe("interface : état du jeton Claude", { skip: cannotRun }, () => {
       assert.ok(await countIs(page.locator("[role=alert], [role=status]"), 0), `aucun bandeau sur ${name}`);
     }
     await visit("/settings", /Connecté en tant que/);
-    assert.ok(await shown(page.getByText("🔑 Jeton Claude")));
+    assert.ok(await shown(page.getByText("Jeton Claude")));
     assert.ok(await shown(page.getByText(/6 juin 2027 \(dans 200 jours\)/)));
   });
 
@@ -159,7 +159,7 @@ describe("interface : état du jeton Claude", { skip: cannotRun }, () => {
       assert.ok(await countIs(page.locator("[role=alert], [role=status]"), 0), `aucun bandeau sur ${name}`);
       assert.ok(await countIs(page.getByText(/jeton Claude/i), 0), `rien sur le jeton sur ${name}`);
     }
-    assert.ok(await countIs(page.getByText("🔑 Jeton Claude"), 0));
+    assert.ok(await countIs(page.getByText("Jeton Claude"), 0));
   });
 
   it("aucune erreur JavaScript ni violation de sécurité dans la console", () => {

@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { query, type SDKMessage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import { classifyAiFailure, messageFor } from "./errors.js";
+import { classifyAiFailure, messageFor, redactSecrets } from "./errors.js";
 import { AiProviderError, type AiProvider, type CareSheetResult, type Photo } from "./provider.js";
 import { CARE_SHEET_SYSTEM_PROMPT, buildCareSheetPrompt } from "./prompts.js";
 import { CareSheet, careSheetJsonSchema } from "@plantes/shared";
@@ -110,10 +110,9 @@ export class ClaudeAgentSdkProvider implements AiProvider {
       clearTimeout(timer);
     }
 
-    const { structured, resultText, failure, exceptionMessage, assistantErrors, texts } = outcome;
+    const { structured, resultText, failure, exceptionMessage } = outcome;
     if (failure || exceptionMessage !== undefined || abortController.signal.aborted) {
-      const code = classifyAiFailure({ assistantErrors, texts, exceptionMessage, timedOut });
-      throw new AiProviderError(messageFor(code), { failure, assistantErrors, texts, exception: exceptionMessage }, code);
+      throw failureError(outcome, timedOut);
     }
     if (structured !== undefined && structured !== null) return structured;
 
@@ -128,6 +127,19 @@ export class ClaudeAgentSdkProvider implements AiProvider {
     }
     throw new AiProviderError("Aucune sortie structurée reçue", resultText);
   }
+}
+
+/** Erreur typée d'un échec ; les jetons éventuellement cités dans les textes sont masqués dans `details`. */
+export function failureError(outcome: StreamOutcome, timedOut: boolean): AiProviderError {
+  const { failure, exceptionMessage, assistantErrors, texts } = outcome;
+  const code = classifyAiFailure({ assistantErrors, texts, exceptionMessage, timedOut });
+  const details = {
+    failure,
+    assistantErrors: assistantErrors.map(redactSecrets),
+    texts: texts.map(redactSecrets),
+    exception: exceptionMessage === undefined ? undefined : redactSecrets(exceptionMessage),
+  };
+  return new AiProviderError(messageFor(code), details, code);
 }
 
 export interface StreamOutcome {

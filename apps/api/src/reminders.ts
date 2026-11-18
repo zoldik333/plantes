@@ -108,7 +108,14 @@ const HEARTBEAT_EVERY_MS = 5 * 60_000;
 
 /** Adresse du signal : « /fail » (format healthchecks.io) tant que l'IA est en panne de jeton ou de compte. */
 export function heartbeatTarget(baseUrl: string, status: "ok" | "problem"): string {
-  return status === "problem" ? `${baseUrl.replace(/\/+$/, "")}/fail` : baseUrl;
+  if (status !== "problem") return baseUrl;
+  try {
+    const u = new URL(baseUrl);
+    u.pathname = `${u.pathname.replace(/\/+$/, "")}/fail`;
+    return u.toString();
+  } catch {
+    return baseUrl;
+  }
 }
 
 /**

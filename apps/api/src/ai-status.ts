@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import type { AiProblem, AiStatus } from "@plantes/shared";
-import { AiProviderError } from "./ai/provider.js";
+import { AiProviderError, type AiProvider } from "./ai/provider.js";
 import { db } from "./db/instance.js";
 import { householdMembers, households, systemState } from "./db/schema.js";
 import { addDays, diffDays, parisParts } from "./lib/time.js";
@@ -71,9 +71,25 @@ export function initAiStatus(push: PushService | null, now = new Date()): void {
 export const getPush = () => pushService;
 
 /** Expiration estimée du jeton, d'après CLAUDE_TOKEN_CREATED (AAAA-MM-JJ, jour de création). */
+let warnedCreated = false;
+function warnCreatedOnce(created: string, reason: string): void {
+  if (warnedCreated) return;
+  warnedCreated = true;
+  const shown = created.length > 12 ? `${created.slice(0, 12)}…` : created;
+  console.warn(`[jeton] CLAUDE_TOKEN_CREATED (« ${shown} ») ${reason} : aucune alerte d'expiration. Attendu : AAAA-MM-JJ, la date de création du jeton.`);
+}
+
 export function tokenInfo(now: Date): { expiresAt: string; daysLeft: number; created: string } | null {
   const created = process.env.CLAUDE_TOKEN_CREATED?.trim();
-  if (!created || !/^\d{4}-\d{2}-\d{2}$/.test(created) || addDays(created, 0) !== created) return null;
+  if (!created) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(created) || addDays(created, 0) !== created) {
+    warnCreatedOnce(created, "n'est pas une date valide");
+    return null;
+  }
+  if (created > parisParts(now).date) {
+    warnCreatedOnce(created, "est dans le futur");
+    return null;
+  }
   const expiresAt = addDays(created, 365);
   return { expiresAt, daysLeft: diffDays(parisParts(now).date, expiresAt), created };
 }
@@ -194,4 +210,22 @@ export async function runTokenWatch(push: PushService | null, now: Date, hours: 
     body: "Il doit être renouvelé sur le serveur, sinon les fiches ne se généreront plus.",
     url: "/settings",
   });
+}
+
+/**
+ * Résultat de `ai:ping` (code de sortie + message) : met aussi à jour l'état persistant partagé avec le serveur
+ * (succès : retour à « ok », sans notification ; échec d'authentification ou de compte : « problem »).
+ */
+export async function pingOutcome(provider: AiProvider, now = new Date()): Promise<{ code: 0 | 2 | 3 | 4; message: string }> {
+  try {
+    const { durationMs } = await provider.generateCareSheet({ plantName: "Pothos" });
+    await recordGenerationOutcome(null, null, now);
+    return { code: 0, message: `✓ La génération fonctionne (${(durationMs / 1000).toFixed(1)} s)` };
+  } catch (err) {
+    await recordGenerationOutcome(null, err, now);
+    if (err instanceof AiProviderError && err.code === "auth") return { code: 2, message: "✗ Jeton Claude invalide ou expiré" };
+    if (err instanceof AiProviderError && err.code === "account") return { code: 4, message: "✗ Compte Claude suspendu ou souci de facturation" };
+    // Seul le message (déjà lisible, sans secret) est affiché, jamais les détails ni l'environnement.
+    return { code: 3, message: `✗ ${err instanceof AiProviderError ? err.message : "Échec inattendu de la génération"}` };
+  }
 }

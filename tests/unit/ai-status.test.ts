@@ -19,6 +19,7 @@ const { db } = await import("../../apps/api/src/db/instance.js");
 const { PushService } = await import("../../apps/api/src/push.js");
 const { AiProviderError } = await import("../../apps/api/src/ai/provider.js");
 const { getAiStatus, initAiStatus, ownerOf, recordGenerationOutcome, runTokenWatch, tokenInfo, currentAiState } = await import("../../apps/api/src/ai-status.js");
+const { pingOutcome } = await import("../../apps/api/src/ai-status.js");
 const { heartbeatTarget } = await import("../../apps/api/src/reminders.js");
 
 after(() => rmSync(DIR, { recursive: true, force: true }));
@@ -268,5 +269,34 @@ describe("heartbeatTarget", () => {
     assert.equal(heartbeatTarget("https://hc-ping.com/abc", "ok"), "https://hc-ping.com/abc");
     assert.equal(heartbeatTarget("https://hc-ping.com/abc", "problem"), "https://hc-ping.com/abc/fail");
     assert.equal(heartbeatTarget("https://hc-ping.com/abc/", "problem"), "https://hc-ping.com/abc/fail");
+  });
+  it("conserve la query ; URL invalide renvoyée telle quelle", () => {
+    assert.equal(heartbeatTarget("https://hc-ping.com/abc?x=1", "problem"), "https://hc-ping.com/abc/fail?x=1");
+    assert.equal(heartbeatTarget("https://hc-ping.com/abc/?x=1", "problem"), "https://hc-ping.com/abc/fail?x=1");
+    assert.equal(heartbeatTarget("https://hc-ping.com/abc?x=1", "ok"), "https://hc-ping.com/abc?x=1");
+    assert.equal(heartbeatTarget("pas une url", "problem"), "pas une url");
+  });
+});
+
+describe("pingOutcome (ai:ping)", () => {
+  const okProvider = { name: "t", generateCareSheet: async () => ({ sheet: {} as never, provider: "t", durationMs: 1500 }) };
+  const failing = (code: "auth" | "account" | "other") => ({ name: "t", generateCareSheet: async () => { throw new AiProviderError("x", undefined, code); } });
+  it("succès : l'état « problem » repasse à « ok », sans notification", async () => {
+    await recordGenerationOutcome(null, fail("auth"), d("2026-11-18T10:00:00Z"));
+    assert.equal(currentAiState().status, "problem");
+    const r = await pingOutcome(okProvider, d("2026-11-18T11:00:00Z"));
+    assert.equal(r.code, 0);
+    assert.equal(currentAiState().status, "ok");
+    assert.equal(sent().length, 0);
+  });
+  it("échec auth / account : état « problem » et bon code de sortie", async () => {
+    assert.equal((await pingOutcome(failing("auth"))).code, 2);
+    assert.deepEqual([currentAiState().status, currentAiState().problem], ["problem", "auth"]);
+    assert.equal((await pingOutcome(failing("account"))).code, 4);
+    assert.equal(currentAiState().problem, "account");
+  });
+  it("autre échec : code 3, état inchangé", async () => {
+    assert.equal((await pingOutcome(failing("other"))).code, 3);
+    assert.equal(currentAiState().status, "ok");
   });
 });

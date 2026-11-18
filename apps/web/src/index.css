@@ -1,26 +1,163 @@
 @import "tailwindcss";
+/* Police du design system, servie par l'application elle-même (la CSP n'autorise aucune police externe). */
+@import "@fontsource-variable/plus-jakarta-sans/wght.css";
+
+/*
+ * Design system « Plantes » (refonte du 18/11/2026) : tokens de couleur en variables CSS, thème clair par défaut,
+ * thème sombre selon le réglage de l'appareil. Tailwind les expose par `@theme inline` : bg-surface, text-ink,
+ * bg-accent, text-on-accent, rounded-lg (24 px), shadow-card, text-heading…
+ * Règles d'usage : un seul bouton citron (accent) par écran, posé sur surface ou surface-deep ; les couleurs de sens
+ * (water, success, warning, danger) toujours avec un mot ou une icône ; aucun emoji, les pictos viennent d'Icon.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #eef3ea;
+  --surface: #ffffff;
+  --surface-sunken: #e3eadd;
+  --surface-deep: #12201a;
+  --ink: #101a14;
+  --ink-muted: #56665b;
+  --on-deep: #f1f6ee;
+  --on-deep-muted: #a9bbad;
+  --accent: #d2f25f;
+  --accent-pressed: #bfe047;
+  --on-accent: #101a14;
+  --leaf: #217040;
+  --leaf-soft: #dcefd3;
+  --line: #d6dfd0;
+  --border-strong: #7f8f84;
+  --glass: #ffffffbf;
+  --water: #1a6e9a;
+  --water-soft: #d7ecf7;
+  --success: #1a6a3a;
+  --success-soft: #d8efdf;
+  --warning: #8f5400;
+  --warning-soft: #fbebc8;
+  --danger: #b3382a;
+  --danger-soft: #fbe0db;
+  --focus-ring: #101a14;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b130e;
+    --surface: #15211a;
+    --surface-sunken: #0f1913;
+    --surface-deep: #1d2e24;
+    --ink: #edf3e9;
+    --ink-muted: #a2b5a7;
+    --accent-pressed: #e0f98a;
+    --leaf: #6fcf8c;
+    --leaf-soft: #1f3a29;
+    --line: #263a2e;
+    --border-strong: #6f857a;
+    --glass: #15211acc;
+    --water: #6cc3ee;
+    --water-soft: #1a3342;
+    --success: #6fd28f;
+    --success-soft: #1d3a29;
+    --warning: #f2b84b;
+    --warning-soft: #3a2e12;
+    --danger: #ff8e7d;
+    --danger-soft: #40201b;
+    --focus-ring: #d2f25f;
+  }
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-deep: var(--surface-deep);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-on-deep: var(--on-deep);
+  --color-on-deep-muted: var(--on-deep-muted);
+  --color-accent: var(--accent);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-on-accent: var(--on-accent);
+  --color-leaf: var(--leaf);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-line: var(--line);
+  --color-border-strong: var(--border-strong);
+  --color-glass: var(--glass);
+  --color-water: var(--water);
+  --color-water-soft: var(--water-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-focus-ring: var(--focus-ring);
+}
 
 @theme {
-  --color-leaf-50: #f0f7f2;
-  --color-leaf-100: #d9ecdf;
-  --color-leaf-600: #2f6f4e;
-  --color-leaf-700: #22543d;
-  --color-leaf-800: #1b4332;
-  --color-paper: #f4f1ea;
+  /* Rayons : cartes lg, carte sombre xl, champs et notices md, vignettes sm, boutons et puces full. */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  --shadow-card: 0 8px 24px -12px #101a1429;
+  --shadow-float: 0 16px 40px -16px #101a1459;
+
+  /* Styles de texte du design system : text-numeral, text-display, text-heading… */
+  --text-numeral: 56px;
+  --text-numeral--line-height: 56px;
+  --text-numeral--font-weight: 800;
+  --text-numeral--letter-spacing: -0.02em;
+  --text-display: 32px;
+  --text-display--line-height: 36px;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.02em;
+  --text-heading: 24px;
+  --text-heading--line-height: 30px;
+  --text-heading--font-weight: 700;
+  --text-heading--letter-spacing: -0.01em;
+  --text-title: 18px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 700;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+  --text-label: 14px;
+  --text-label--line-height: 20px;
+  --text-label--font-weight: 600;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 500;
+  --text-button: 16px;
+  --text-button--line-height: 24px;
+  --text-button--font-weight: 700;
+  --text-overline: 12px;
+  --text-overline--line-height: 16px;
+  --text-overline--font-weight: 700;
+  --text-overline--letter-spacing: 0.08em;
 }
 
 html {
   /* Le geste « tirer pour actualiser » est géré par l'application : pas de rafraîchissement ni de rebond natifs en plus. */
   overscroll-behavior-y: contain;
-  background: var(--color-paper);
-  color: #1f2a24;
+  background: var(--bg);
+  color: var(--ink);
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   /* Zones sûres de l'iPhone (encoche, barre d'accueil) en mode application installée. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Focus : anneau plein de 2 px, décalé de 2 px, visible au clavier seulement. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }

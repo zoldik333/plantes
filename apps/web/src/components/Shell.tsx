@@ -1,36 +1,51 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { Icon, type IconName } from "./Icon";
 import { PullToRefresh } from "./PullToRefresh";
 
-const TABS = [
-  { href: "/", icon: "💧", label: "Aujourd'hui", match: (p: string) => p === "/" },
-  { href: "/plants", icon: "🌿", label: "Plantes", match: (p: string) => p.startsWith("/plants") },
-  { href: "/rooms", icon: "🏠", label: "Pièces", match: (p: string) => p.startsWith("/rooms") },
-  { href: "/settings", icon: "⚙️", label: "Réglages", match: (p: string) => p.startsWith("/settings") },
+const TABS: { href: string; icon: IconName; label: string; match: (p: string) => boolean }[] = [
+  { href: "/", icon: "drop", label: "Aujourd'hui", match: (p) => p === "/" },
+  { href: "/plants", icon: "leaf", label: "Plantes", match: (p) => p.startsWith("/plants") },
+  { href: "/rooms", icon: "home", label: "Pièces", match: (p) => p.startsWith("/rooms") },
+  { href: "/settings", icon: "settings", label: "Réglages", match: (p) => p.startsWith("/settings") },
 ];
 
-/** Cadre des pages connectées : contenu + barre d'onglets en bas (pouce de l'utilisateur). */
+/**
+ * Cadre des pages connectées : contenu + barre d'onglets flottante en verre (pouce de l'utilisateur).
+ * L'onglet actif est en citron avec son libellé ; les autres n'affichent que l'icône (nom accessible par aria-label).
+ */
 export function Shell({ children }: { children: ReactNode }) {
   const [path] = useLocation();
   return (
     <>
       <PullToRefresh />
-      <div className="pb-24">{children}</div>
-      <nav className="fixed inset-x-0 bottom-0 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <ul className="mx-auto flex max-w-md">
-          {TABS.map((t) => (
-            <li key={t.href} className="flex-1">
-              <Link
-                href={t.href}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium ${
-                  t.match(path) ? "text-leaf-700" : "text-stone-500"
-                }`}
-              >
-                <span className="text-xl leading-none">{t.icon}</span>
-                {t.label}
-              </Link>
-            </li>
-          ))}
+      <div className="pb-28">{children}</div>
+      <nav
+        aria-label="Navigation principale"
+        className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+12px)] z-40 mx-auto max-w-[26rem] rounded-full bg-glass p-2 shadow-float backdrop-blur-xl"
+      >
+        <ul className="flex items-center justify-between">
+          {TABS.map((t) => {
+            const active = t.match(path);
+            return (
+              <li key={t.href}>
+                {active ? (
+                  <Link
+                    href={t.href}
+                    aria-current="page"
+                    className="flex h-12 items-center gap-2 rounded-full bg-accent px-4 text-label font-bold text-on-accent"
+                  >
+                    <Icon name={t.icon} size={22} />
+                    {t.label}
+                  </Link>
+                ) : (
+                  <Link href={t.href} aria-label={t.label} className="flex size-12 items-center justify-center rounded-full text-ink-muted active:bg-surface-sunken">
+                    <Icon name={t.icon} size={22} />
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </nav>
     </>

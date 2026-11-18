@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { KEY, TestServer } from "../helpers/server.js";
-import { cannotRun, launch, newPage, photoFile, shot } from "./helpers.js";
+import { cannotRun, countIs, gone, imageLoaded, launch, newPage, photoFile, shot, shown } from "./helpers.js";
 
 describe("interface : parcours complet", { skip: cannotRun }, () => {
   let s: TestServer;
@@ -15,7 +15,7 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
   let inviteLink = "";
 
   before(async () => {
-    s = await TestServer.start({ aiDelayMs: 1500 });
+    s = await TestServer.start({ aiDelayMs: 4000 });
     browser = await launch();
     ({ ctx, page } = await newPage(browser, errors));
   });
@@ -27,7 +27,7 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
   it("premier compte : le lien d'installation est proposé, une mauvaise clé est refusée avec un message", async () => {
     await page.goto(s.url + "/");
     await page.waitForURL("**/login");
-    assert.ok(await page.getByText("Créer le premier compte").isVisible());
+    assert.ok(await shown(page.getByText("Créer le premier compte")));
     await shot(page, "01-login");
     await page.getByText("Créer le premier compte").click();
     await page.getByLabel("Prénom").fill("Alice");
@@ -42,7 +42,7 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
     await page.getByLabel(/Clé d'installation/).fill(KEY);
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await page.getByRole("heading", { name: "Aujourd'hui" }).waitFor();
-    assert.ok(await page.getByText("Tu n'as pas encore de plante").isVisible());
+    assert.ok(await shown(page.getByText("Tu n'as pas encore de plante")), "invitation à ajouter une première plante");
     await shot(page, "02-home-vide");
   });
 
@@ -71,9 +71,9 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
     await shot(page, "04-ajout");
     await page.getByRole("button", { name: "Ajouter la plante" }).click();
     await page.waitForURL(/\/plants\/[a-f0-9]+$/);
-    assert.ok(await page.getByText(/Claude prépare la fiche|en attente de génération/).first().isVisible(), "suivi affiché pendant l'attente");
+    assert.ok(await shown(page.getByText(/Claude prépare la fiche|en attente de génération/)), "suivi affiché pendant l'attente");
     await page.getByText("Photo reçue").waitFor({ timeout: 20_000 }); // la photo a été transmise à l'IA
-    assert.ok((await page.locator("img").first().evaluate((i: HTMLImageElement) => i.naturalWidth)) > 0, "photo principale chargée (route protégée)");
+    assert.ok(await imageLoaded(page, "img"), "photo principale chargée (route protégée)");
     await shot(page, "06-fiche");
   });
 
@@ -86,19 +86,19 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
     await page.getByRole("button", { name: /Modifier/ }).click();
     await page.getByLabel("Été (jours)").fill("0");
     await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
-    assert.ok(await page.getByText(/entre 1 et 60 jours/).isVisible());
+    assert.ok(await shown(page.getByText(/entre 1 et 60 jours/)), "message pour une valeur invalide");
     await page.locator("section", { hasText: "Modifier la fiche" }).getByRole("button", { name: "Annuler" }).click();
   });
 
   it("liste : vignette, filtre par pièce, régénération qui remplace la fiche modifiée", async () => {
     await page.getByRole("link", { name: /Plantes/ }).click();
     await page.getByText("Ma Calathea").waitFor();
-    assert.ok((await page.locator("ul img").first().evaluate((i: HTMLImageElement) => i.naturalWidth)) > 0, "vignette chargée");
+    assert.ok(await imageLoaded(page, "ul img"), "vignette chargée");
     await page.getByRole("button", { name: /Salon · 1/ }).click();
-    assert.ok(await page.getByText("Ma Calathea").isVisible());
+    assert.ok(await shown(page.getByText("Ma Calathea")), "la plante est dans sa pièce");
     await page.getByRole("button", { name: /Cuisine ouverte · 0/ }).click();
-    assert.ok(!(await page.getByText("Ma Calathea").isVisible()), "la plante n'est pas dans cette pièce");
-    assert.ok(await page.getByText("Aucune plante dans cette pièce").isVisible(), "message pour une pièce vide");
+    assert.ok(await gone(page.getByText("Ma Calathea")), "la plante n'est pas dans cette pièce");
+    assert.ok(await shown(page.getByText("Aucune plante dans cette pièce")), "message pour une pièce vide");
     await shot(page, "08-liste");
     await page.getByRole("button", { name: "Toutes" }).click();
     await page.getByText("Ma Calathea").click();
@@ -122,7 +122,7 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
     ({ page: bob } = await newPage(browser, errors));
     await bob.goto(inviteLink);
     await bob.getByText(/t'invite à rejoindre/).waitFor();
-    assert.ok(await bob.getByText(/Alice t'invite/).isVisible());
+    assert.ok(await shown(bob.getByText(/Alice t'invite/)), "nomme la personne qui invite");
     await shot(bob, "10-invitation");
     await bob.getByLabel("Prénom").fill("Bob");
     await bob.getByLabel("E-mail").fill("bob@plantes.test");
@@ -133,7 +133,7 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
     await bob.getByText(/invalide, expirée ou déjà utilisée/).waitFor();
     await bob.goto(s.url + "/settings");
     await bob.getByText("Alice").first().waitFor();
-    assert.ok((await bob.getByText("Bob").count()) > 0, "Bob voit les deux membres du foyer");
+    assert.ok(await shown(bob.getByText("Bob")), "Bob voit les deux membres du foyer");
   });
 
   it("passkey (authentificateur virtuel) : création, puis connexion sans mot de passe", async () => {

@@ -30,6 +30,7 @@ Le serveur ne lit pas `.env` seul : `npx tsx --env-file=.env apps/api/src/server
 pnpm typecheck     # types de tous les paquets
 pnpm test          # API, file de génération, rappels, logique d'arrosage : ~30 s, sans réseau, IA factice
 pnpm test:ui       # interface dans un vrai Chrome (écran d'iPhone) ; CHROME_PATH si Chrome est ailleurs
+UI_CPU_THROTTLE=4 pnpm test:ui   # navigateur 4 fois plus lent : fait apparaître les courses (la CI est plus lente que le poste)
 ```
 
 Les tests lancent un vrai serveur sur un port libre avec une base temporaire. `AI_PROVIDER=fake` remplace l'IA et `PUSH_DRY_RUN_FILE` remplace l'envoi des notifications : **un test ne consomme jamais l'abonnement Claude ni ne notifie personne**. Ce que les tests ne peuvent pas vérifier (iPhone, IA réelle, exploitation) est dans [`TESTS-MANUELS.md`](TESTS-MANUELS.md).

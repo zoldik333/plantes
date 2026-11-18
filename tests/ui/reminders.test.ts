@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import type { Browser, Page } from "playwright-core";
 import { KEY, TestServer } from "../helpers/server.js";
-import { cannotRun, launch, newPage, shot } from "./helpers.js";
+import { cannotRun, countIs, launch, newPage, shot, shown } from "./helpers.js";
 
 const DAY = 86_400_000;
 
@@ -34,7 +34,7 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     await page.getByLabel(/Clé d'installation/).fill(KEY);
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await page.getByRole("heading", { name: "Aujourd'hui" }).waitFor();
-    assert.ok(await page.getByText(/Active les notifications/).isVisible());
+    assert.ok(await shown(page.getByText(/Active les notifications/)), "invitation à activer les notifications");
     for (const name of ["Calathea", "Pothos"]) {
       await page.getByRole("link", { name: /Plantes/ }).click();
       await page.getByRole("link", { name: "+ Ajouter" }).click();
@@ -56,42 +56,44 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     s.db((db) => db.prepare("update plants set created_at = ?").run(Date.now() - 20 * DAY));
     await page.reload();
     await page.getByText(/À arroser · 2/).waitFor();
-    assert.equal(await page.getByText(/en retard de \d+ jours?/).count(), 2);
+    assert.ok(await countIs(page.getByText(/en retard de \d+ jours?/), 2), "deux plantes en retard");
     await shot(page, "21-aujourdhui-a-arroser");
   });
 
   it("arrosée, annulation dans le bandeau, puis « encore humide »", async () => {
     await card(page, "Calathea").getByRole("button", { name: /Arrosée/ }).click();
     await page.getByText(/Calathea : arrosée/).waitFor();
-    assert.ok(await page.getByText(/À arroser · 1/).isVisible());
+    assert.ok(await shown(page.getByText(/À arroser · 1/)), "la Calathea a quitté la liste");
     await page.getByRole("button", { name: "Annuler", exact: true }).first().click();
     await page.getByText(/À arroser · 2/).waitFor();
     await card(page, "Calathea").getByRole("button", { name: /Arrosée/ }).click();
     await card(page, "Pothos").getByRole("button", { name: "Encore humide" }).click();
     await page.getByText("Rien à arroser aujourd'hui").waitFor();
-    assert.ok(await page.getByText(/Pothos : rappel repoussé|Dans les 7 prochains jours/).first().isVisible());
+    assert.ok(await shown(page.getByText(/Pothos : rappel repoussé|Dans les 7 prochains jours/)), "confirmation affichée");
     await shot(page, "22-apres-actions");
   });
 
   it("fiche d'une plante : arrosage repoussé, journal, note vide impossible, note et engrais ajoutés puis annulés", async () => {
     await page.getByRole("link", { name: /Plantes/ }).click();
-    assert.equal(await page.getByText("💧 À arroser").count(), 0, "aucun badge dans la liste");
+    assert.ok(await shown(page.getByText("Pothos")), "la liste est chargée");
+    assert.ok(await countIs(page.getByText("💧 À arroser"), 0), "aucun badge dans la liste");
     await page.getByText("Pothos").click();
     await page.getByText(/repoussé : encore humide/).waitFor();
-    assert.ok(await page.getByText("🌫️ Encore humide").isVisible(), "l'action figure dans le journal");
+    assert.ok(await shown(page.getByText("🌫️ Encore humide")), "l'action figure dans le journal");
 
     await journalSelect().selectOption("note");
+    assert.ok(await shown(page.getByPlaceholder("Ta note (obligatoire)")));
     assert.ok(await page.getByRole("button", { name: "Ajouter au journal" }).isDisabled(), "une note vide ne peut pas être ajoutée");
     await page.getByPlaceholder("Ta note (obligatoire)").fill("Feuille jaunie à gauche");
     await page.getByRole("button", { name: "Ajouter au journal" }).click();
     await page.getByText("Feuille jaunie à gauche").waitFor();
-    assert.ok(await page.getByText(/Alice/).first().isVisible(), "signée « Alice »");
+    assert.ok(await shown(page.getByText(/Alice/)), "signée « Alice »");
 
     await journalSelect().selectOption("fertilized");
     await page.getByPlaceholder(/Précision/).fill("Demi-dose");
     await page.getByRole("button", { name: "Ajouter au journal" }).click();
     await page.getByText("Demi-dose").waitFor();
-    assert.ok(await page.locator("li", { has: page.getByText("Demi-dose") }).getByText("🧪 Engrais").isVisible());
+    assert.ok(await shown(page.locator("li", { has: page.getByText("Demi-dose") }).getByText("🧪 Engrais")), "engrais avec sa précision");
     await shot(page, "23-journal");
 
     await page.locator("li", { has: page.getByText("Feuille jaunie à gauche") }).getByRole("button", { name: "Annuler" }).click();
@@ -106,7 +108,7 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     await page.getByText(/À arroser : en retard/).waitFor();
     await page.getByRole("link", { name: /Plantes/ }).click();
     await page.getByText("💧 À arroser").waitFor();
-    assert.equal(await page.getByText("💧 À arroser").count(), 1);
+    assert.ok(await countIs(page.getByText("💧 À arroser"), 1), "un seul badge : la Calathea");
     await shot(page, "24-liste-badge");
   });
 
@@ -122,7 +124,7 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
     await bob.getByRole("button", { name: "Créer mon compte" }).click();
     await bob.getByRole("heading", { name: "Aujourd'hui" }).waitFor();
     await bob.getByText(/À arroser · 1/).waitFor();
-    assert.ok(await bob.getByText("Calathea").isVisible());
+    assert.ok(await shown(bob.getByText("Calathea")), "Bob voit la même plante à arroser");
     await card(bob, "Calathea").getByRole("button", { name: /Arrosée/ }).click();
     await bob.getByText("Rien à arroser aujourd'hui").waitFor();
 
@@ -162,17 +164,17 @@ describe("interface : rappels d'arrosage et journal", { skip: cannotRun }, () =>
       await page.getByText(/Tous les\s+7 jours/).waitFor({ timeout: 20_000 });
     };
     await addPlant("Ficus", "Il y a environ une semaine");
-    assert.ok((await page.getByText("💧 Arrosée").count()) >= 1, "un arrosage figure dans le journal du Ficus");
-    assert.ok(await page.getByText(/Prochain arrosage|À arroser/).first().isVisible());
+    assert.ok(await shown(page.getByText("💧 Arrosée")), "un arrosage figure dans le journal du Ficus");
+    assert.ok(await shown(page.getByText(/Prochain arrosage|À arroser/)), "état d'arrosage déduit");
     await shot(page, "26-ficus-semaine");
     await page.locator("label", { hasText: "Oublié de cocher" }).locator("select").selectOption({ label: "Hier" });
     await page.waitForFunction(() => [...document.querySelectorAll("li")].filter((l) => l.textContent?.includes("💧 Arrosée")).length >= 2);
 
     await addPlant("Cactus", "Il y a plus de deux semaines (ou je ne sais pas)");
-    assert.ok(await page.getByText(/À arroser :/).isVisible(), "le Cactus est à arroser tout de suite");
+    assert.ok(await shown(page.getByText(/À arroser :/)), "le Cactus est à arroser tout de suite");
     await page.getByRole("link", { name: /Aujourd'hui/ }).click();
     await page.getByText(/À arroser · /).waitFor();
-    assert.ok(await page.locator("li", { has: page.getByText("Cactus", { exact: true }) }).getByRole("button", { name: /Arrosée/ }).isVisible());
+    assert.ok(await shown(page.locator("li", { has: page.getByText("Cactus", { exact: true }) }).getByRole("button", { name: /Arrosée/ })), "le Cactus a son bouton « Arrosée »");
     await shot(page, "27-aujourdhui-cactus");
   });
 

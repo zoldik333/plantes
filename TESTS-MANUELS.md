@@ -12,6 +12,9 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 | Pièces, plantes, photos : filtrage par foyer (accès croisé entre deux foyers), EXIF/GPS supprimés, rotation, limites de taille, fichiers supprimés avec la plante | `curl`, 39 contrôles | 17/11/2026 |
 | File de génération : ordre, une seule à la fois, erreur puis relance, suppression en cours, limite de 5 par foyer, reprise après arrêt brutal du serveur | `curl` avec IA factice, 34 contrôles | 18/11/2026 |
 | Interface complète dans Chrome (viewport iPhone) : inscription, pièces, ajout avec photo, génération, édition, filtre, régénération, suppression, invitation, **passkeys (authentificateur virtuel)**, mot de passe oublié | Playwright, 29 contrôles | 18/11/2026 |
+| Rappels d'arrosage : calcul (saisons, « encore humide », annulation), créneaux 9 h / 18 h, relance seulement si nécessaire, pas de doublon, rattrapage, heure d'été et d'hiver, aucun message vers un autre foyer ou un abonnement sans compte | script avec horloge injectée, 44 contrôles | 18/11/2026 |
+| Journal d'entretien, « Aujourd'hui », rappel de test, accès croisé entre foyers | `curl`, 41 contrôles | 18/11/2026 |
+| Interface « Aujourd'hui » : arroser, annuler, « encore humide », journal, un membre coche et l'autre le voit, rappel de test | Playwright, 25 contrôles (+ 29 de non-régression) | 18/11/2026 |
 | IA réelle : photo qui correspond, nom seul, photo qui ne correspond pas au nom (`nameMatchesPhoto: false`) | 3 générations réelles | 18/11/2026 |
 | Image Docker x86_64 (`sharp`, migrations, front) | construite et lancée sur `node1` | 17/11/2026 |
 
@@ -97,8 +100,48 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 - [ ] **Révocation** : changer un mot de passe via lien de réinitialisation et vérifier que l'ancien appareil est déconnecté.
 - [ ] **Ports exposés** : depuis l'extérieur, seuls 80 et 443 répondent (`nmap -p 1-1000 82.67.218.121` depuis un autre réseau). Le port 3000 de l'app et SSH ne doivent pas être joignables.
 
-## G. Ce qui ne sera testable qu'aux étapes suivantes
+## G. Rappels d'arrosage et journal (étape 6)
 
-- Rappels d'arrosage, « Arrosé » / « Encore humide », regroupement des notifications par jour, un membre coche et les autres ne sont plus relancés (étape 6).
-- Journal d'entretien (étape 6).
+*Les rappels réels dépendent de l'heure : le premier test utile se fait le lendemain matin.*
+
+- [ ] **« Tester le vrai rappel »** (Réglages) sur l'iPhone, écran verrouillé. *Attendu : notification « 🧪 Test : 💧 N plantes à arroser » avec les noms des plantes ; si rien n'est à arroser : « Rien à arroser ».*
+- [ ] **Premier rappel réel à 9 h** : s'arranger pour qu'une plante soit à arroser (voir « Provoquer un rappel » ci-dessous), ne pas ouvrir l'app, attendre 9 h. *Attendu : une seule notification regroupant toutes les plantes, avec le bon nombre au bon accord (« 1 plante » / « 3 plantes »).*
+- [ ] **Toucher la notification** : *Attendu : l'app s'ouvre sur « Aujourd'hui » avec la liste à jour (pas l'ancienne).*
+- [ ] **Relance de 18 h** : si la plante n'a pas été arrosée, une notification « Toujours à arroser : … » arrive à 18 h ; **si elle a été cochée dans la journée, aucune notification à 18 h.**
+- [ ] **Un membre coche, l'autre n'est plus relancé** *(deux téléphones)* : A coche une plante à 14 h. *Attendu : B ne reçoit pas de relance à 18 h pour cette plante, et voit « Rien à arroser » en ouvrant l'app.*
+- [ ] **Au plus une notification par créneau et par personne** : sur 2 jours, compter les notifications reçues. *Attendu : 1 à 9 h, 1 à 18 h seulement s'il reste des plantes ; jamais de doublon.*
+- [ ] **Plantes jamais arrosées depuis leur ajout** : le premier rappel arrive un intervalle après l'ajout. *À juger : est-ce le bon comportement pour une plante qu'on vient d'acheter ? Sinon, proposer « Arrosée » à la création.*
+- [ ] **« Encore humide »** : le rappel est repoussé de 2 à 7 jours (un quart de l'intervalle). *À juger sur un mois : est-ce trop court ou trop long ? Les valeurs se règlent dans `apps/api/src/lib/watering.ts` (`postponeDays`).*
+- [ ] **Annuler une erreur de clic** : cocher « Arrosée » par erreur, appuyer sur « Annuler » dans le bandeau (10 s), puis le refaire plus tard depuis le journal de la plante. *Attendu : la plante redevient à arroser.*
+- [ ] **Intervalles du rythme** : comparer le rythme proposé par l'IA avec ton expérience sur 5 plantes. Corriger dans la fiche (« Modifier ») : *Attendu : le prochain arrosage est recalculé tout de suite.*
+- [ ] **Changement de saison** : le 1er avril et le 1er octobre, l'intervalle bascule (été 7 j / hiver 12 j par exemple). *À constater : les échéances sautent d'un coup ; est-ce gênant ?*
+- [ ] **Changement d'heure** (dimanche 28/03/2027 et dimanche 31/10/2027) : *Attendu : le rappel part toujours à 9 h, heure de Paris, ni 8 h ni 10 h.*
+- [ ] **Fuseau de l'appareil** : en voyage ou avec un autre fuseau sur le téléphone, les heures du journal s'affichent en heure locale et les rappels restent à l'heure de Paris.
+- [ ] **Serveur éteint à 9 h** : arrêter l'app avant 9 h (`docker compose stop app`), la relancer à 10 h. *Attendu : le rappel part au redémarrage (rattrapage jusqu'à 3 h après le créneau). Relancée à 12 h 30 : pas de rappel tardif.*
+- [ ] **Redémarrage dans la journée** : `docker compose restart app` après le rappel de 9 h. *Attendu : pas de second rappel.*
+- [ ] **Retour dans l'app** : après avoir arrosé sur un téléphone, rouvrir l'app sur l'autre. *Attendu : la liste est à jour (rechargement au retour au premier plan).*
+- [ ] **Lisibilité de « Aujourd'hui »** avec 15 plantes en retard : liste fluide, boutons assez grands pour le pouce, pas de clic accidentel.
+- [ ] **Journal** : ajouter engrais, rempotage et une note avec accents et emoji. *Attendu : affichés tels quels, signés du bon prénom, supprimables avec « Annuler ».*
+- [ ] **Désabonnement** : retirer l'autorisation de notification dans les réglages d'iOS, attendre un rappel. *Attendu : pas d'erreur côté serveur ; l'abonnement est retiré au premier rejet (journal : `[push] échec (410)`).*
+
+### Provoquer un rappel sans attendre
+
+Les plantes neuves ne sont à arroser qu'au bout d'un intervalle. Pour tester vite, sur `node1` :
+
+```
+cd ~/plantes
+docker compose exec app node -e "
+const D=require('/app/apps/api/node_modules/better-sqlite3');
+const db=new D('/app/data/plantes.db');
+// rend la plante « Calathea » à arroser (créée il y a 30 jours, journal d'arrosage effacé)
+db.prepare(\"update plants set created_at=? where name=?\").run(Date.now()-30*864e5,'Calathea');
+db.prepare(\"delete from care_events where plant_id in (select id from plants where name=?)\").run('Calathea');
+"
+```
+
+*(à adapter au nom de la plante ; ne touche qu'à cette plante. Sinon, utiliser « Tester le vrai rappel », qui n'attend pas l'heure.)*
+
+## H. Ce qui ne sera testable qu'aux étapes suivantes
+
 - Diagnostic santé par photo, chat par plante, timeline photo (V2).
+- Raccourci iOS appelant l'API (bonus).

@@ -77,6 +77,7 @@ export default function PlantList() {
               <div className="p-3">
                 <p className="truncate font-semibold text-stone-900">{p.name}</p>
                 <p className="truncate text-sm text-stone-500">{roomName(p.roomId) ?? "Sans pièce"}</p>
+                {p.water && p.water.daysUntil <= 0 && <p className="mt-1 text-xs font-semibold text-leaf-700">💧 À arroser</p>}
                 {p.job && p.job.status !== "error" && <p className="mt-1 text-xs font-medium text-leaf-700">⏳ Fiche en cours…</p>}
                 {p.job?.status === "error" && <p className="mt-1 text-xs font-medium text-red-700">⚠️ Fiche à relancer</p>}
                 {!p.job && !p.hasSheet && <p className="mt-1 text-xs text-stone-400">Pas de fiche</p>}

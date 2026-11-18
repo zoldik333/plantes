@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button, Card, Notice, useAction } from "../../components/ui";
+import { api } from "../../lib/api";
 import { enablePush, sendTestPush } from "../../lib/push";
 
 export function NotificationsCard() {
@@ -31,6 +32,23 @@ export function NotificationsCard() {
       >
         M'envoyer une notification dans 10 s
       </Button>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={() =>
+          void run(async () => {
+            const r = await api<{ plants: number; sent: number; total: number }>("/api/reminders/test", { method: "POST" });
+            setStatus(
+              r.total === 0
+                ? "Aucun appareil abonné pour toi : active d'abord les notifications."
+                : `Rappel envoyé à ${r.sent} appareil${r.sent > 1 ? "s" : ""} (${r.plants} plante${r.plants > 1 ? "s" : ""} à arroser en ce moment).`,
+            );
+          })
+        }
+      >
+        Tester le vrai rappel
+      </Button>
+      <p className="text-sm text-stone-600">Rappels à 9 h, et une relance à 18 h seulement s'il reste des plantes à arroser. Dès qu'un membre du foyer coche une plante, personne n'est plus relancé pour elle.</p>
       {status && <Notice kind="ok">{status}</Notice>}
       {error && <Notice kind="error">{error}</Notice>}
     </Card>

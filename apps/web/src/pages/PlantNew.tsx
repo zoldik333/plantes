@@ -35,7 +35,7 @@ export default function PlantNew() {
 
   return (
     <Page>
-      <Link href="/" className="pt-2 text-sm font-medium text-leaf-700">
+      <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
         ← Mes plantes
       </Link>
       <Card title="Nouvelle plante">

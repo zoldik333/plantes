@@ -32,3 +32,14 @@ export function usePoll(active: boolean, fn: () => void, ms = 3000) {
     return () => clearInterval(id);
   }, [active, fn, ms]);
 }
+
+/** Recharge les données quand l'app revient au premier plan (ex. en touchant une notification). */
+export function useFocusReload(reload: () => void | Promise<void>) {
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [reload]);
+}

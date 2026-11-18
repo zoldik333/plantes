@@ -63,10 +63,17 @@ Pièges rencontrés :
   - `AI_PROVIDER=fake` (+ `AI_FAKE_DELAY_MS`) : fournisseur factice pour tester la file sans consommer l'abonnement (un nom contenant « ECHEC » échoue). Ne jamais le mettre en production.
 - **Tests** : les contrôles automatiques (curl pour l'API et la file, Playwright + Chrome pour l'interface et les passkeys avec authentificateur virtuel) ont été écrits dans le scratchpad de session et ne sont **pas versionnés**. Ce qui reste à vérifier à la main (iPhone, IA réelle, exploitation) est dans `TESTS-MANUELS.md`.
 
+- **Rappels et journal (étape 6)** : l'état d'arrosage n'est **jamais stocké**, il est calculé depuis le journal `care_events` (`apps/api/src/lib/watering.ts`) : dernier « arrosé » + intervalle de la saison (avril→septembre = `intervalDaysSummer`, sinon `intervalDaysWinter`, fuseau fixe Europe/Paris), repoussé par « encore humide » (un quart de l'intervalle, 2 à 7 jours). Une plante jamais arrosée compte depuis sa création ; sans fiche, pas de rappel. Annuler une action = la supprimer du journal. Types d'événements : `watered`, `still_wet`, `fertilized`, `repotted`, `note`.
+  - **Rappels** (`apps/api/src/reminders.ts`) : vérifiés chaque minute ; créneaux `REMINDER_HOURS` (défaut `9,18`, vide = désactivé) : 9 h = rappel du jour, 18 h = relance **seulement s'il reste des plantes à arroser**. Un message regroupé par personne, vers ses seuls appareils, jamais vers un autre foyer. Table `reminder_log` (créneau + foyer) : noté **avant** l'envoi (au plus une fois), rattrapage de 3 h après un créneau manqué. Les abonnements sans compte (d'avant l'étape 3) ne sont jamais ciblés.
+  - Routes : `GET /api/today`, `GET|POST /api/plants/:id/events`, `DELETE /api/plants/:id/events/:id`, `POST /api/reminders/test` (vrai rappel vers soi seul), `POST /api/push/test` (vers soi seul).
+  - Front : **« Aujourd'hui » est l'accueil** (arroser / encore humide / annuler pendant 10 s), « Plantes » est le 2e onglet ; carte d'arrosage et journal sur la fiche d'une plante ; rechargement au retour au premier plan.
+  - Tests : `PUSH_DRY_RUN_FILE=<fichier>` écrit les notifications dans un fichier au lieu de les envoyer (**tests uniquement**).
+  - Pas encore fait : apprentissage de l'intervalle d'après les « encore humide » ; réglage de l'heure par personne ; désactivation des rappels par personne (désabonner l'appareil suffit).
+
 ## Prochaines étapes
 1. Étape 3 : passkeys validées sur l'iPhone en production (confirmé par Théo le 17/11/2026).
-2. Étape 6 : rappels d'arrosage (intervalles été/hiver de `careSheet.watering`, « Arrosé » / « Encore humide », une notification par jour et par personne, un membre coche → les autres ne sont plus relancés) et journal d'entretien. Les abonnements push sont déjà liés à `user_id` ; `sendToAll` est à remplacer par un envoi ciblé par foyer. Étape 7 : interface au fil des étapes.
-3. Dérouler `TESTS-MANUELS.md` (notamment notification écran verrouillé, photos HEIC et portrait, qualité des fiches).
+2. Dérouler `TESTS-MANUELS.md` (notamment notification écran verrouillé, premier rappel réel à 9 h, photos HEIC et portrait, qualité des fiches).
+3. Étape 7 : finitions de l'interface (cache hors ligne avec `vite-plugin-pwa`, icônes, retours d'usage après une semaine à deux).
 4. À durcir : limite de débit sur l'API (Caddy), sauvegarde hors machine (base **et** `photos/`).
 
 ## Façon de travailler avec Théo

@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 
 const TABS = [
-  { href: "/", icon: "🌿", label: "Plantes", match: (p: string) => p === "/" || p.startsWith("/plants") },
+  { href: "/", icon: "💧", label: "Aujourd'hui", match: (p: string) => p === "/" },
+  { href: "/plants", icon: "🌿", label: "Plantes", match: (p: string) => p.startsWith("/plants") },
   { href: "/rooms", icon: "🏠", label: "Pièces", match: (p: string) => p.startsWith("/rooms") },
   { href: "/settings", icon: "⚙️", label: "Réglages", match: (p: string) => p.startsWith("/settings") },
 ];

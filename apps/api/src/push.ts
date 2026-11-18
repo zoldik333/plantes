@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, renameSync } from "node:fs";
-import { eq } from "drizzle-orm";
+import { appendFileSync, existsSync, readFileSync, renameSync } from "node:fs";
+import { eq, inArray } from "drizzle-orm";
 import webpush, { type PushSubscription } from "web-push";
 import type { Db } from "./db/index.js";
 import { pushSubscriptions } from "./db/schema.js";
@@ -57,11 +57,22 @@ export class PushService {
     return this.all().length;
   }
 
-  /** Envoie à tous les abonnés ; supprime ceux que le service push déclare expirés. */
-  async sendToAll(payload: { title: string; body: string; url?: string }) {
-    const subs = this.all();
+  /**
+   * Envoie à tous les appareils des personnes données ; supprime ceux que le service push déclare expirés.
+   * Avec PUSH_DRY_RUN_FILE (tests uniquement), écrit les messages dans ce fichier au lieu de les envoyer.
+   */
+  async sendToUsers(userIds: string[], payload: { title: string; body: string; url?: string }) {
+    if (userIds.length === 0) return { sent: 0, total: 0 };
+    const subs = this.db.select().from(pushSubscriptions).where(inArray(pushSubscriptions.userId, userIds)).all();
+    const dryRun = process.env.PUSH_DRY_RUN_FILE;
     let sent = 0;
-    for (const sub of subs) {
+    for (const row of subs) {
+      if (dryRun) {
+        appendFileSync(dryRun, JSON.stringify({ endpoint: row.endpoint, userId: row.userId, payload }) + "\n");
+        sent++;
+        continue;
+      }
+      const sub: PushSubscription = { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } };
       try {
         await webpush.sendNotification(sub, JSON.stringify(payload), { TTL: 3600, urgency: "normal" });
         sent++;

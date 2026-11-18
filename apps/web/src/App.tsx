@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import PlantDetail from "./pages/PlantDetail";
 import PlantList from "./pages/PlantList";
 import PlantNew from "./pages/PlantNew";
+import Today from "./pages/Today";
 import Reset from "./pages/Reset";
 import Rooms from "./pages/Rooms";
 import Settings from "./pages/Settings";
@@ -17,7 +18,8 @@ function Authenticated({ me }: { me: Me }) {
   return (
     <Shell>
       <Switch>
-        <Route path="/" component={PlantList} />
+        <Route path="/" component={Today} />
+        <Route path="/plants" component={PlantList} />
         <Route path="/plants/new" component={PlantNew} />
         <Route path="/plants/:id">{(p) => <PlantDetail id={p.id} />}</Route>
         <Route path="/rooms" component={Rooms} />

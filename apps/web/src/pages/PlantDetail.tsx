@@ -5,6 +5,7 @@ import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { useFetch, usePoll } from "../lib/fetch";
 import { photoUrl, uploadPhoto } from "../lib/photos";
+import { CareCard } from "../components/Journal";
 import { CareSheetEditor } from "../components/CareSheetEditor";
 import { CareSheetView } from "../components/CareSheetView";
 import { SheetStatus } from "../components/SheetStatus";
@@ -30,7 +31,7 @@ export default function PlantDetail({ id }: { id: string }) {
   if (plant.error) {
     return (
       <Page>
-        <Link href="/" className="pt-2 text-sm font-medium text-leaf-700">
+        <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
           ← Mes plantes
         </Link>
         <Notice kind="error">{plant.error}</Notice>
@@ -85,13 +86,13 @@ export default function PlantDetail({ id }: { id: string }) {
     if (!window.confirm(`Supprimer « ${p.name} » et ses photos ? Cette action est définitive.`)) return;
     void run(async () => {
       await api(`/api/plants/${id}`, { method: "DELETE" });
-      navigate("/");
+      navigate("/plants");
     });
   };
 
   return (
     <Page>
-      <Link href="/" className="pt-2 text-sm font-medium text-leaf-700">
+      <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
         ← Mes plantes
       </Link>
 
@@ -155,6 +156,8 @@ export default function PlantDetail({ id }: { id: string }) {
           </select>
         </label>
       </Card>
+
+      <CareCard plantId={id} water={p.water} hasSheet={p.hasSheet} onChange={plant.reload} />
 
       {p.job && <SheetStatus job={p.job} busy={busy} onRetry={() => generate(false)} />}
 

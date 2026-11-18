@@ -1,5 +1,5 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import type { CareSheet } from "@plantes/shared";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { CareEventType, CareSheet } from "@plantes/shared";
 import { user } from "./auth-schema.js";
 
 // Tables de Better Auth : user, session, account, verification, passkey.
@@ -116,3 +116,38 @@ export const careSheetJobs = sqliteTable("care_sheet_jobs", {
   error: text("error"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
 });
+
+/** Journal d'entretien : arrosages, « encore humide », engrais, rempotage, notes. Les rappels en sont déduits. */
+export const careEvents = sqliteTable(
+  "care_events",
+  {
+    id: text("id").primaryKey(),
+    plantId: text("plant_id")
+      .notNull()
+      .references(() => plants.id, { onDelete: "cascade" }),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    type: text("type").$type<CareEventType>().notNull(),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+  },
+  (t) => [index("care_events_plant_idx").on(t.plantId, t.createdAt)],
+);
+
+/** Rappels déjà traités (un par créneau et par foyer) : évite les doublons après un redémarrage. */
+export const reminderLog = sqliteTable(
+  "reminder_log",
+  {
+    /** « AAAA-MM-JJ#heure », ex. « 2026-11-18#9 ». */
+    slot: text("slot").notNull(),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Nombre de plantes à arroser au moment du créneau. */
+    plantCount: integer("plant_count").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+  },
+  (t) => [primaryKey({ columns: [t.slot, t.householdId] })],
+);

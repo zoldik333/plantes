@@ -1,12 +1,13 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { PlantInput, PlantUpdate, type PlantDetail, type PlantSummary, type SheetJob } from "@plantes/shared";
+import { EventInput, PlantInput, PlantUpdate, type CareEvent, type PlantDetail, type PlantSummary, type SheetJob, type WaterStatus } from "@plantes/shared";
 import { MAX_ACTIVE_PER_HOUSEHOLD, activeCount, enqueue, jobsOf } from "../care-sheet-queue.js";
 import { db } from "../db/instance.js";
-import { plantPhotos, plants, rooms } from "../db/schema.js";
+import { careEvents, plantPhotos, plants, rooms, user } from "../db/schema.js";
 import { deletePhotoFiles, isPhotoId, readPhoto, savePhoto } from "../lib/photos.js";
 import { newId } from "../lib/tokens.js";
+import { waterStatuses } from "../lib/watering.js";
 import { parseBody } from "../lib/validate.js";
 import { requireMember, type AuthEnv } from "../session.js";
 
@@ -31,21 +32,20 @@ function summary(
   coverPhotoId: string | null,
   hasSheet: boolean,
   job: SheetJob | null,
+  water: WaterStatus | null,
 ): PlantSummary {
-  return { id: p.id, name: p.name, roomId: p.roomId, coverPhotoId, hasSheet, job, createdAt: p.createdAt.toISOString() };
+  return { id: p.id, name: p.name, roomId: p.roomId, coverPhotoId, hasSheet, job, water, createdAt: p.createdAt.toISOString() };
 }
 
-export const plantsRoutes = new Hono<AuthEnv>();
-plantsRoutes.use("*", requireMember);
-
-plantsRoutes.get("/", (c) => {
-  const householdId = c.get("householdId");
+/** Résumé de toutes les plantes d'un foyer (liste, « Aujourd'hui », rappels). */
+export function listSummaries(householdId: string, now = new Date()): PlantSummary[] {
   // Photos de la plus récente à la plus ancienne : la première rencontrée par plante est sa couverture.
   const cover = new Map<string, string>();
   for (const ph of db.select().from(plantPhotos).where(eq(plantPhotos.householdId, householdId)).orderBy(desc(plantPhotos.createdAt)).all()) {
     if (!cover.has(ph.plantId)) cover.set(ph.plantId, ph.id);
   }
   const jobs = jobsOf(householdId);
+  const water = waterStatuses(householdId, now);
   // On ne lit pas les fiches elles-mêmes (volumineuses) : seulement leur présence.
   const list = db
     .select({ id: plants.id, name: plants.name, roomId: plants.roomId, createdAt: plants.createdAt, hasSheet: sql<number>`${plants.careSheet} is not null` })
@@ -53,8 +53,13 @@ plantsRoutes.get("/", (c) => {
     .where(eq(plants.householdId, householdId))
     .orderBy(plants.name)
     .all();
-  return c.json(list.map((p) => summary(p, cover.get(p.id) ?? null, !!p.hasSheet, jobs.get(p.id) ?? null)));
-});
+  return list.map((p) => summary(p, cover.get(p.id) ?? null, !!p.hasSheet, jobs.get(p.id) ?? null, water.get(p.id) ?? null));
+}
+
+export const plantsRoutes = new Hono<AuthEnv>();
+plantsRoutes.use("*", requireMember);
+
+plantsRoutes.get("/", (c) => c.json(listSummaries(c.get("householdId"))));
 
 plantsRoutes.post("/", async (c) => {
   const householdId = c.get("householdId");
@@ -67,7 +72,7 @@ plantsRoutes.post("/", async (c) => {
   const row = { id: newId(), householdId, roomId: roomId ?? null, name, careSheet: careSheet ?? null, createdBy: c.get("user").id };
   db.insert(plants).values(row).run();
   const created = ownedPlant(householdId, row.id)!;
-  return c.json(summary(created, null, created.careSheet != null, null), 201);
+  return c.json(summary(created, null, created.careSheet != null, null, waterStatuses(householdId).get(created.id) ?? null), 201);
 });
 
 plantsRoutes.get("/:id", (c) => {
@@ -75,7 +80,7 @@ plantsRoutes.get("/:id", (c) => {
   if (!p) return c.json({ error: "Plante introuvable" }, 404);
   const photoIds = photoIdsOf(p.id);
   const detail: PlantDetail = {
-    ...summary(p, photoIds[0] ?? null, p.careSheet != null, jobsOf(p.householdId).get(p.id) ?? null),
+    ...summary(p, photoIds[0] ?? null, p.careSheet != null, jobsOf(p.householdId).get(p.id) ?? null, waterStatuses(p.householdId).get(p.id) ?? null),
     careSheet: p.careSheet ?? null,
     photoIds,
   };
@@ -109,6 +114,52 @@ plantsRoutes.delete("/:id", async (c) => {
   db.delete(plants).where(eq(plants.id, p.id)).run(); // les lignes de photos partent en cascade
   await Promise.all(photoIds.map((id) => deletePhotoFiles(householdId, id)));
   return c.json({ ok: true });
+});
+
+const MAX_NOTE_EVENTS = 1000;
+
+/** Journal d'entretien d'une plante, du plus récent au plus ancien. */
+plantsRoutes.get("/:id/events", (c) => {
+  const householdId = c.get("householdId");
+  const p = ownedPlant(householdId, c.req.param("id"));
+  if (!p) return c.json({ error: "Plante introuvable" }, 404);
+  const rows = db
+    .select({ id: careEvents.id, type: careEvents.type, note: careEvents.note, createdAt: careEvents.createdAt, userName: user.name })
+    .from(careEvents)
+    .leftJoin(user, eq(user.id, careEvents.userId))
+    .where(and(eq(careEvents.plantId, p.id), eq(careEvents.householdId, householdId)))
+    .orderBy(desc(careEvents.createdAt))
+    .limit(100)
+    .all();
+  const list: CareEvent[] = rows.map((r) => ({ id: r.id, type: r.type, note: r.note, userName: r.userName, createdAt: r.createdAt.toISOString() }));
+  return c.json(list);
+});
+
+plantsRoutes.post("/:id/events", async (c) => {
+  const householdId = c.get("householdId");
+  const p = ownedPlant(householdId, c.req.param("id"));
+  if (!p) return c.json({ error: "Plante introuvable" }, 404);
+  const body = await parseBody(c, EventInput);
+  if ("res" in body) return body.res;
+  const total = db.select({ n: count() }).from(careEvents).where(eq(careEvents.plantId, p.id)).get()?.n ?? 0;
+  if (total >= MAX_NOTE_EVENTS) return c.json({ error: "Journal plein pour cette plante" }, 400);
+  const event = { id: newId(), plantId: p.id, householdId, userId: c.get("user").id, type: body.data.type, note: body.data.note || null };
+  db.insert(careEvents).values(event).run();
+  return c.json({ id: event.id, water: waterStatuses(householdId).get(p.id) ?? null }, 201);
+});
+
+/** Annuler une action (clic par erreur) : l'état d'arrosage est recalculé à partir du journal restant. */
+plantsRoutes.delete("/:id/events/:eventId", (c) => {
+  const householdId = c.get("householdId");
+  const plantId = c.req.param("id");
+  const ev = db
+    .select({ id: careEvents.id })
+    .from(careEvents)
+    .where(and(eq(careEvents.id, c.req.param("eventId")), eq(careEvents.plantId, plantId), eq(careEvents.householdId, householdId)))
+    .get();
+  if (!ev) return c.json({ error: "Action introuvable" }, 404);
+  db.delete(careEvents).where(eq(careEvents.id, ev.id)).run();
+  return c.json({ ok: true, water: waterStatuses(householdId).get(plantId) ?? null });
 });
 
 /** Lance (ou relance après une erreur) la génération de la fiche par l'IA ; la plante est lue avec sa dernière photo. */

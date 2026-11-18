@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { PullToRefresh } from "./PullToRefresh";
 
 const TABS = [
   { href: "/", icon: "💧", label: "Aujourd'hui", match: (p: string) => p === "/" },
@@ -13,6 +14,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [path] = useLocation();
   return (
     <>
+      <PullToRefresh />
       <div className="pb-24">{children}</div>
       <nav className="fixed inset-x-0 bottom-0 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <ul className="mx-auto flex max-w-md">

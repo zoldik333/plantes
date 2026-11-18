@@ -10,6 +10,8 @@
 }
 
 html {
+  /* Le geste « tirer pour actualiser » est géré par l'application : pas de rafraîchissement ni de rebond natifs en plus. */
+  overscroll-behavior-y: contain;
   background: var(--color-paper);
   color: #1f2a24;
   -webkit-text-size-adjust: 100%;

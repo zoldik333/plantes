@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "./api";
 import { useMe } from "./me";
+import { onRefresh } from "./refresh";
 
 /** Charge une ressource de l'API. Une session expirée (401) renvoie vers la connexion. */
 export function useFetch<T>(path: string) {
@@ -20,6 +21,9 @@ export function useFetch<T>(path: string) {
     setState((s) => ({ ...s, loading: true }));
     void load();
   }, [load]);
+
+  // « Tirer pour actualiser » : recharge sans repasser par l'état de chargement (le contenu reste affiché).
+  useEffect(() => onRefresh(load), [load]);
 
   return { ...state, reload: load };
 }

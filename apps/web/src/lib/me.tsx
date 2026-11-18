@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError } from "./api";
+import { onRefresh } from "./refresh";
 
 export interface Me {
   user: { id: string; name: string; email: string };
@@ -11,6 +12,9 @@ interface MeState {
   me: Me | null | undefined;
   refresh: () => Promise<void>;
 }
+
+/** Le foyer peut changer pendant que l'app reste ouverte (quelqu'un rejoint) : on le relit à cet intervalle. */
+export const ME_POLL_MS = 30_000;
 
 const MeContext = createContext<MeState | null>(null);
 
@@ -29,6 +33,24 @@ export function MeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh().catch(() => setMe(null));
   }, [refresh]);
+
+  // Le foyer (qui en fait partie), la session : relus au retour au premier plan, régulièrement, et sur « tirer pour actualiser ».
+  const loggedIn = !!me;
+  useEffect(() => {
+    if (!loggedIn) return;
+    const quiet = () => void refresh().catch(() => {});
+    const tick = () => {
+      if (document.visibilityState === "visible") quiet();
+    };
+    const id = setInterval(tick, ME_POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    const unsubscribe = onRefresh(refresh);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+      unsubscribe();
+    };
+  }, [loggedIn, refresh]);
 
   return <MeContext.Provider value={{ me, refresh }}>{children}</MeContext.Provider>;
 }

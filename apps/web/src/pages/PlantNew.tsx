@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
 import type { PlantSummary, Room } from "@plantes/shared";
-import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
+import { Icon } from "../components/Icon";
+import { Button, Card, Field, Notice, Page, PageHeader, PlantPlaceholder, inputClass, labelClass, linkClass, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { useFetch } from "../lib/fetch";
 import { uploadPhoto } from "../lib/photos";
@@ -38,37 +39,52 @@ export default function PlantNew() {
 
   return (
     <Page>
-      <Link href="/plants" className="pt-2 text-sm font-medium text-leaf-700">
-        ← Mes plantes
+      <Link href="/plants" className="-ml-1 inline-flex min-h-12 items-center gap-1 self-start pr-2 text-label text-ink-muted active:opacity-70">
+        <Icon name="back" />
+        Mes plantes
       </Link>
-      <Card title="Nouvelle plante">
-        <form onSubmit={submit} className="flex flex-col gap-3">
+      <PageHeader title="Nouvelle plante" />
+      <Card>
+        <form onSubmit={submit} className="flex flex-col gap-5">
           <Field label="Nom" placeholder="ex. Calathea du salon" value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} />
-          <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
-            Pièce
-            <select
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              className="min-h-11 rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900"
-            >
-              <option value="">Sans pièce</option>
-              {rooms.data?.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {rooms.data?.length === 0 && (
-            <p className="text-sm text-stone-500">
-              Tu n'as pas encore de pièce. <Link href="/rooms" className="underline">En créer une</Link>
-            </p>
-          )}
-          <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
-            Photo (facultatif)
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>
+              Pièce
+              <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+                <option value="">Sans pièce</option>
+                {rooms.data?.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {rooms.data?.length === 0 && (
+              <p className="text-body-sm text-ink-muted">
+                Tu n'as pas encore de pièce.{" "}
+                <Link href="/rooms" className={linkClass}>
+                  En créer une
+                </Link>
+              </p>
+            )}
+          </div>
+          <label className="flex items-center gap-4 rounded-md bg-surface-sunken p-3 text-ink focus-within:outline-2 focus-within:outline-focus-ring active:opacity-80">
+            {preview ? (
+              <img src={preview} alt="Aperçu" className="size-20 shrink-0 rounded-sm object-cover" />
+            ) : (
+              <PlantPlaceholder className="size-20 shrink-0 rounded-sm" />
+            )}
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="text-label">Photo (facultatif)</span>
+              <span className="flex items-center gap-1.5 text-body-sm text-ink-muted">
+                <Icon name="camera" size={18} />
+                {file ? "Changer la photo" : "Prendre ou choisir une photo"}
+              </span>
+            </span>
             <input
               type="file"
               accept="image/*"
+              className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 setFile(f);
@@ -76,26 +92,28 @@ export default function PlantNew() {
               }}
             />
           </label>
-          {preview && <img src={preview} alt="Aperçu" className="max-h-60 rounded-xl object-cover" />}
-          <label className="flex flex-col gap-1 text-sm font-medium text-stone-700">
+          <label className={labelClass}>
             Dernier arrosage
-            <select value={watered} onChange={(e) => setWatered(e.target.value)} className="min-h-11 rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900">
+            <select value={watered} onChange={(e) => setWatered(e.target.value)} className={inputClass}>
               <option value="0">Aujourd'hui</option>
               <option value="2">Il y a 2 ou 3 jours</option>
               <option value="7">Il y a environ une semaine</option>
               <option value="14">Il y a plus de deux semaines (ou je ne sais pas)</option>
             </select>
-            <span className="font-normal text-stone-500">Le rappel d'arrosage s'en déduit.</span>
+            <span className="text-caption text-ink-muted">Le rappel d'arrosage s'en déduit.</span>
           </label>
-          <label className="flex items-start gap-2 text-sm text-stone-700">
-            <input type="checkbox" checked={withSheet} onChange={(e) => setWithSheet(e.target.checked)} className="mt-1 size-5" />
+          <label className="flex items-start gap-3 text-body-sm text-ink">
+            <input type="checkbox" checked={withSheet} onChange={(e) => setWithSheet(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-leaf" />
             <span>
-              Générer la fiche d'entretien avec Claude
-              <span className="block text-stone-500">Prête en 15 à 30 secondes ; tu peux la corriger ensuite.</span>
+              <span className="flex items-center gap-1.5 font-semibold">
+                <Icon name="sparkle" size={16} className="text-leaf" />
+                Générer la fiche d'entretien avec Claude
+              </span>
+              <span className="block text-ink-muted">Prête en 15 à 30 secondes ; tu peux la corriger ensuite.</span>
             </span>
           </label>
           {error && <Notice kind="error">{error}</Notice>}
-          <Button type="submit" disabled={busy || !name.trim()}>
+          <Button type="submit" variant="primary" icon="plus" disabled={busy || !name.trim()}>
             {busy ? "Création…" : "Ajouter la plante"}
           </Button>
         </form>

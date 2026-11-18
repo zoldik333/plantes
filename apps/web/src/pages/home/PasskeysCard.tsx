@@ -1,3 +1,4 @@
+import { Icon } from "../../components/Icon";
 import { Button, Card, Notice, useAction } from "../../components/ui";
 import { authClient } from "../../lib/auth-client";
 
@@ -20,21 +21,28 @@ export function PasskeysCard() {
     });
 
   return (
-    <Card title="🔑 Connexion sans mot de passe">
-      <p className="text-sm text-stone-600">
+    <Card
+      title={
+        <span className="flex items-center gap-2">
+          <Icon name="key" className="text-leaf" />
+          Connexion sans mot de passe
+        </span>
+      }
+    >
+      <p className="text-body-sm text-ink-muted">
         Une passkey te connecte avec Face ID ou ton empreinte. C'est aussi ta solution de secours si tu oublies ton mot de passe.
       </p>
       {isPending ? null : passkeys && passkeys.length > 0 ? (
-        <ul className="flex flex-col divide-y divide-stone-100">
+        <ul className="flex flex-col divide-y divide-line">
           {passkeys.map((p) => (
-            <li key={p.id} className="flex items-center justify-between py-2">
-              <span>
-                {p.name ?? "Passkey"}
-                <span className="block text-xs text-stone-500">
+            <li key={p.id} className="flex items-center justify-between gap-3 py-3">
+              <span className="min-w-0">
+                <span className="text-label text-ink">{p.name ?? "Passkey"}</span>
+                <span className="block text-caption text-ink-muted">
                   Ajoutée le {p.createdAt ? new Date(p.createdAt).toLocaleDateString("fr-FR") : "—"}
                 </span>
               </span>
-              <Button variant="danger" className="min-h-9 px-3 py-1 text-sm" disabled={busy} onClick={() => remove(p.id)}>
+              <Button variant="danger" icon="trash" className="shrink-0 px-4 text-label" disabled={busy} onClick={() => remove(p.id)}>
                 Retirer
               </Button>
             </li>
@@ -43,7 +51,7 @@ export function PasskeysCard() {
       ) : (
         <Notice>Aucune passkey enregistrée.</Notice>
       )}
-      <Button variant="secondary" onClick={add} disabled={busy}>
+      <Button variant="secondary" icon="plus" onClick={add} disabled={busy}>
         Ajouter une passkey sur cet appareil
       </Button>
       {error && <Notice kind="error">{error}</Notice>}

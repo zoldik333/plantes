@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
-import { Button, Card, Field, Notice, Page, useAction } from "../components/ui";
+import { Button, Card, Field, linkClass, Notice, useAction } from "../components/ui";
 import { api } from "../lib/api";
 import { authClient } from "../lib/auth-client";
 import { useMe } from "../lib/me";
+import { WelcomePage } from "./SignupForm";
 
 export default function Login() {
   const [, navigate] = useLocation();
@@ -41,10 +42,9 @@ export default function Login() {
     });
 
   return (
-    <Page>
-      <h1 className="pt-6 text-center text-3xl font-bold text-leaf-800">🌿 Plantes</h1>
+    <WelcomePage>
       <Card title="Connexion">
-        <form onSubmit={submit} className="flex flex-col gap-3">
+        <form onSubmit={submit} className="flex flex-col gap-4">
           <Field label="E-mail" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Field
             label="Mot de passe"
@@ -55,21 +55,24 @@ export default function Login() {
             required
           />
           {error && <Notice kind="error">{error}</Notice>}
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" variant="primary" className="w-full" disabled={busy}>
             Se connecter
           </Button>
         </form>
-        <Button variant="secondary" onClick={withPasskey} disabled={busy}>
-          🔑 Se connecter avec une passkey
+        <Button variant="secondary" icon="key" className="w-full" onClick={withPasskey} disabled={busy}>
+          Se connecter avec une passkey
         </Button>
       </Card>
       {needsBootstrap ? (
         <Notice>
-          Aucun foyer n'existe encore sur ce serveur. <Link href="/setup" className="font-medium underline">Créer le premier compte</Link>
+          Aucun foyer n'existe encore sur ce serveur.{" "}
+          <Link href="/setup" className={linkClass}>
+            Créer le premier compte
+          </Link>
         </Notice>
       ) : (
         <Notice>L'inscription se fait sur invitation : demande un lien à un membre de ton foyer.</Notice>
       )}
-    </Page>
+    </WelcomePage>
   );
 }

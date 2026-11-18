@@ -15,7 +15,7 @@ Cases non cochées, en attente d'une date ou d'une configuration :
 - Place disque : En attente : quelques mois d'usage
 - Alerte de disparition : En attente : `HEARTBEAT_URL` pas encore configurée sur node1
 - Rotation des journaux : En attente : quelques semaines
-- Token expiré : Sera traité par la nouvelle gestion du jeton
+- Token expiré : voir la section H (gestion du jeton), à dérouler une fois en vrai
 - Ports exposés : En attente : test IPv6 depuis la 4G à confirmer
 - Changement de saison : En attente : 1er avril 2027
 - Changement d'heure : En attente : 28/03/2027
@@ -167,7 +167,22 @@ db.prepare(\"delete from care_events where plant_id in (select id from plants wh
 
 *(à adapter au nom de la plante ; ne touche qu'à cette plante. Sinon, utiliser « Tester le vrai rappel », qui n'attend pas l'heure.)*
 
-## H. Ce qui ne sera testable qu'aux étapes suivantes
+## H. Jeton Claude : alertes et renouvellement
+
+*Le jeton dure un an et ne se renouvelle pas sans navigateur : tout est conçu pour t'avertir à l'avance et rendre le remplacement simple. Le renouvellement réel ne se teste qu'avec ton Mac, ton navigateur et `node1`.*
+
+- [ ] **Renseigner la date de création** : sur `node1`, dans `~/plantes/.env`, ajouter `CLAUDE_TOKEN_CREATED=2026-11-16` (estimation de la création du jeton actuel), puis `docker compose up -d`. *Attendu : Réglages affiche la carte « 🔑 Jeton Claude » avec une expiration en novembre 2027.*
+- [ ] **`ai:ping` en production** : `ssh … 'cd ~/plantes && docker compose exec -T app ./node_modules/.bin/tsx src/ai-ping.ts'`. *Attendu : « ✓ La génération fonctionne », code de sortie 0 (consomme une génération).*
+- [ ] **Renouvellement réel** : sur le Mac, `./scripts/rotate-token.sh`, se reconnecter dans le navigateur, coller le jeton. *Attendu : « ✓ Jeton renouvelé », la date de création est mise à jour, une nouvelle fiche se génère, et `.env.avant-jeton` n'existe plus sur `node1`.*
+- [ ] **Échec du renouvellement** : relancer le script en collant un jeton au bon format mais faux (`sk-ant-oat01-` suivi de 30 lettres au hasard). *Attendu : « ✗ Le nouveau jeton est refusé », l'ancien jeton est remis, et l'app génère toujours des fiches.*
+- [ ] **Alerte à l'avance** : mettre `CLAUDE_TOKEN_CREATED` à une date d'il y a 340 jours, relancer ; le lendemain matin à 9 h (ou après redémarrage dans la fenêtre de 3 h). *Attendu : notification « Le jeton Claude expire dans 25 jours » reçue par **toi seul** (le propriétaire), bandeau orange sur Aujourd'hui, Réglages et les fiches. Remettre la vraie date ensuite.*
+- [ ] **Jeton invalide, vécu en vrai** : mettre temporairement un faux jeton dans `.env` de `node1`, relancer, demander une fiche. *Attendu : message « Le jeton Claude n'est plus valide… » (pas un message vague), bandeau rouge visible par **les deux** membres, notification au propriétaire seulement, et « Réessayer » possible. Remettre le bon jeton : notification « Les fiches fonctionnent de nouveau » à la prochaine génération réussie, bandeau disparu.*
+- [ ] **Second membre** : sur le téléphone de l'autre membre, avec le jeton invalide : bandeau rouge « Préviens la personne qui administre l'appli », **sans** commande ni carte « Jeton Claude » dans Réglages.
+- [ ] **Limite d'usage ≠ jeton expiré** : si l'abonnement atteint sa limite (message « session limit » côté Claude), l'app doit dire « limite d'usage atteinte… » et **ne pas** afficher de bandeau rouge de jeton.
+- [ ] **Surveillance** (si `HEARTBEAT_URL` est configurée) : avec le jeton invalide, le check passe en échec (alerte), et revient au vert après remise du bon jeton.
+- [ ] **Politique** : relire la remarque « Risque de politique » de `CLAUDE.md` et décider si l'usage partagé par le foyer te convient (sinon, bascule vers une clé API ou un autre fournisseur via `AiProvider`).
+
+## I. Ce qui ne sera testable qu'aux étapes suivantes
 
 - Diagnostic santé par photo, chat par plante, timeline photo (V2).
 - Raccourci iOS appelant l'API (bonus).

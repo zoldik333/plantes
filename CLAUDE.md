@@ -79,6 +79,16 @@ Pièges rencontrés :
   - **Piège de déploiement** : `node1` applique `compose.yaml`, `Caddyfile` et `scripts/` dès le `git pull` (cron), **sans attendre la CI** ; seule l'image est protégée par les tests. Le job `infra` de la CI valide ces fichiers (compose, `caddy validate`, `sh -n`), mais un changement de comportement (pas de syntaxe) y serait appliqué avant les tests.
   - **Reste ouvert** : sauvegardes hors machine (volontairement reportées), exposition IPv6 des autres services de `node1` (à tester depuis la 4G), 2FA et protection de `main` sur GitHub (le push sur `main` est exécuté chez toi).
 
+- **Jeton Claude (renouvellement)** : `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) dure **un an** ; aucune date d'expiration lisible, aucun renouvellement sans navigateur, **aucun contrôle de validité gratuit** (`accountInfo()` répond « OK » même avec un jeton bidon : mesuré). Donc : détection **passive** sur les vraies générations (pas de requête de contrôle périodique qui consommerait l'abonnement), alerte à l'avance sur `CLAUDE_TOKEN_CREATED` + 365 jours, procédure de remplacement outillée.
+  - Mesure avec un jeton invalide (SDK 0.3.326) : `api_retry` avec `error: "authentication_failed"` (×2), message assistant avec la même erreur, puis un `result` de `subtype: "success"` mais **`is_error: true`**, puis l'itérateur lève. Ne jamais lire `subtype` seul.
+  - Classification des échecs (`apps/api/src/ai/errors.ts`) : `auth`, `account`, `usage_limit`, `overloaded`, `timeout`, `other`. Seuls `auth` et `account` changent l'état de l'IA (`problem`) et notifient ; une limite d'usage ou une surcharge ne doivent jamais être annoncées comme un jeton expiré.
+  - Notifications au **propriétaire** du foyer (membre le plus ancien) ; `GET /api/ai/status` ; bandeau et carte « Jeton Claude » dans l'app ; `HEARTBEAT_URL/fail` tant que le problème dure.
+  - Renouveler : `./scripts/rotate-token.sh` sur le Mac (voir `docs/renouvellement-du-jeton.md`) ; vérifier : `ai:ping` dans le conteneur.
+  - **Risque de politique (à connaître)** : la doc officielle réserve l'authentification OAuth d'abonnement à un usage ordinaire et individuel, et recommande la clé API pour les applications construites avec le Agent SDK. Un usage partagé par 2-3 personnes d'un foyer avec un seul abonnement est une **zone grise non tranchée**. L'interface `AiProvider` permet de basculer (clé API facturée, autre fournisseur) sans toucher au reste.
+
+## Façon de travailler (consigne de Théo, 18/11/2026)
+- **Utiliser des sous-agents pour mener plusieurs tâches indépendantes en parallèle** (recherche, implémentation backend / frontend / scripts, documentation), chacun avec un périmètre de fichiers disjoint et, pour le code, `isolation: "worktree"`. Définir d'abord le **contrat** (types partagés dans `packages/shared`) puis fusionner et lancer toute la suite de tests.
+
 ## Prochaines étapes
 1. Étape 3 : passkeys validées sur l'iPhone en production (confirmé par Théo le 17/11/2026).
 2. Dérouler `TESTS-MANUELS.md` (notamment notification écran verrouillé, premier rappel réel à 9 h, photos HEIC et portrait, qualité des fiches).

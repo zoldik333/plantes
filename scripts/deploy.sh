@@ -21,7 +21,13 @@ main() {
   git pull --quiet --ff-only
   after=$(git rev-parse HEAD)
 
-  docker compose pull --quiet app
+  # Compose écrit « Pulling / Pulled » même quand l'image est à jour : on n'affiche la sortie qu'en cas d'échec
+  # (un changement d'image se voit de toute façon au « Recreate » de `up`).
+  if ! pull_out=$(docker compose pull --quiet app 2>&1); then
+    log "ÉCHEC du téléchargement de l'image"
+    echo "$pull_out"
+    exit 1
+  fi
   if ! out=$(docker compose up -d --remove-orphans 2>&1); then
     log "ÉCHEC du déploiement"
     echo "$out"

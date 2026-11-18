@@ -31,23 +31,31 @@ describe("scripts/deploy.sh", () => {
     git(clone, "commit", "-m", "init");
     git(clone, "push", "origin", "HEAD:main");
     git(clone, "branch", "--set-upstream-to=origin/main");
-    // Faux docker : `compose up` affiche FAKE_UP et sort avec FAKE_UP_CODE ; le reste réussit sans rien dire.
-    writeFileSync(join(bin, "docker"), `#!/bin/sh\nif [ "$2" = "up" ]; then printf '%s\\n' "$FAKE_UP"; exit \${FAKE_UP_CODE:-0}; fi\nexit 0\n`);
+    // Faux docker, fidèle à Compose 5 : `pull --quiet` affiche quand même « Pulling / Pulled » (sur la sortie d'erreur) et
+    // sort avec FAKE_PULL_CODE ; `up` affiche FAKE_UP et sort avec FAKE_UP_CODE ; le reste réussit sans rien dire.
+    writeFileSync(
+      join(bin, "docker"),
+      `#!/bin/sh
+if [ "$2" = "pull" ]; then echo " Image ghcr.io/x/plantes:latest Pulling " >&2; echo " Image ghcr.io/x/plantes:latest Pulled " >&2; exit \${FAKE_PULL_CODE:-0}; fi
+if [ "$2" = "up" ]; then printf '%s\\n' "$FAKE_UP"; exit \${FAKE_UP_CODE:-0}; fi
+exit 0
+`,
+    );
     chmodSync(join(bin, "docker"), 0o755);
   });
   after(() => rmSync(root, { recursive: true, force: true }));
 
-  const run = (up: string, code = 0) =>
+  const run = (up: string, code = 0, pullCode = 0) =>
     spawnSync("sh", [join(clone, "scripts/deploy.sh")], {
-      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, FAKE_UP: up, FAKE_UP_CODE: String(code) },
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, FAKE_UP: up, FAKE_UP_CODE: String(code), FAKE_PULL_CODE: String(pullCode) },
       encoding: "utf8",
     });
 
   it("rien ne change : aucune sortie (le journal ne grossit pas)", () => {
     const r = run(" Container plantes-app-1 Running \n Container plantes-caddy-1 Running ");
     assert.equal(r.status, 0);
-    assert.equal(r.stdout.trim(), "");
-    assert.equal(r.stderr.trim(), "");
+    assert.equal(r.stdout.trim(), "", "rien sur la sortie standard");
+    assert.equal(r.stderr.trim(), "", "ni les lignes « Pulling / Pulled » de Compose sur la sortie d'erreur");
   });
 
   it("un conteneur est recréé : le changement est journalisé, avec les versions", () => {
@@ -76,6 +84,13 @@ describe("scripts/deploy.sh", () => {
     assert.notEqual(r.status, 0);
     assert.match(r.stdout, /ÉCHEC du déploiement/);
     assert.match(r.stdout, /pull access denied/);
+  });
+
+  it("échec du téléchargement de l'image : code de sortie non nul, et la sortie de Compose est montrée", () => {
+    const r = run(" Container plantes-app-1 Running ", 0, 1);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stdout, /ÉCHEC du téléchargement/);
+    assert.match(r.stdout, /Pulling/);
   });
 
   it("le journal de plus de 1 Mo est ramené à quelques lignes, sur place", () => {

@@ -6,8 +6,19 @@ Cocher une case = testé et conforme. En cas d'écart, noter le message exact et
 
 ## Ce qui est déjà vérifié automatiquement (inutile de le refaire à la main)
 
-| Sujet | Comment | Dernière vérification |
-|---|---|---|
+`pnpm test` (91 tests) et `pnpm test:ui` (22 tests, dans Chrome), exécutés par la CI à chaque push. Ils couvrent :
+
+| Sujet | Détail |
+|---|---|
+| Comptes | premier compte protégé par la clé, inscription fermée, invitation à usage unique et expirante, e-mail déjà pris, origine étrangère refusée, limiteur d'inscription, mot de passe oublié (lien à usage unique, sessions révoquées) |
+| Pièces, plantes, photos | isolation entre deux foyers sur toutes les routes, EXIF/GPS supprimés, rotation, limites de taille, fichiers supprimés avec la plante |
+| Fiche par l'IA (IA factice) | ordre de la file, une génération à la fois, erreur puis relance, suppression en cours, limite de 5 par foyer, **reprise après `kill -9`** |
+| Arrosage et rappels | saisons, « encore humide », annulation, arrosage daté, créneaux 9 h / 18 h, relance seulement si nécessaire, pas de doublon (même avec deux exécutions simultanées), rattrapage, heure d'été et d'hiver, aucun message vers un autre foyer ni vers un abonnement sans compte |
+| Interface (Chrome, écran d'iPhone) | parcours complet des comptes aux rappels, **passkeys (authentificateur virtuel)**, foyer partagé, aucune erreur de console |
+
+**Pas couvert, donc à faire à la main** : l'iPhone réel, les vraies notifications, l'IA réelle (qualité des fiches), le serveur `node1`.
+
+---|---|---|
 | Authentification : bootstrap, invitation à usage unique, inscription fermée, réinitialisation, sessions révoquées, origine étrangère | `curl`, 23 contrôles, image Docker en mode production | 17/11/2026 |
 | Pièces, plantes, photos : filtrage par foyer (accès croisé entre deux foyers), EXIF/GPS supprimés, rotation, limites de taille, fichiers supprimés avec la plante | `curl`, 39 contrôles | 17/11/2026 |
 | File de génération : ordre, une seule à la fois, erreur puis relance, suppression en cours, limite de 5 par foyer, reprise après arrêt brutal du serveur | `curl` avec IA factice, 34 contrôles | 18/11/2026 |

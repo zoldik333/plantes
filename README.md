@@ -1,73 +1,41 @@
-# POC Plantes — test de faisabilité
+# Plantes
 
-Vérifie les deux risques du projet avant de construire la V1 :
+PWA pour gérer les plantes d'intérieur d'un foyer de 2 ou 3 personnes : fiche d'entretien générée par l'IA, pièces, rappels d'arrosage partagés, journal d'entretien. Hébergée à la maison, coût zéro. Contexte, décisions et état d'avancement : [`CLAUDE.md`](CLAUDE.md).
 
-1. **Fiche IA** : Claude Agent SDK + abonnement Pro, photo + nom → fiche JSON structurée
-2. **Push iOS** : notification Web Push reçue par la PWA installée sur iPhone
+## Structure
 
-## 1. Récupérer le token de ton abonnement Claude
+| Dossier | Rôle |
+|---|---|
+| `apps/api` | API (Hono, Node 22), SQLite + Drizzle, Better Auth, Web Push, file de génération IA |
+| `apps/web` | Application (React 19, Vite, Tailwind 4), servie par l'API |
+| `packages/shared` | Schémas Zod partagés (fiche d'entretien, plantes, journal) |
+| `tests` | Tests automatiques (API, logique, interface dans Chrome) |
 
-Sur un poste avec navigateur (ton PC, pas forcément le serveur) :
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash   # si Claude Code n'est pas installé
-claude setup-token
-```
-
-Copie le token affiché. **Ne définis jamais `ANTHROPIC_API_KEY`** dans `.env` : elle prendrait le dessus et facturerait l'API.
-
-## 2. Configurer sur le serveur Debian
+## Développement
 
 ```bash
-cp .env.example .env
-docker compose build
-docker compose run --rm app npm run vapid   # copie les 2 lignes dans .env
-openssl rand -hex 16                         # → POC_ACCESS_KEY dans .env
+corepack enable            # ou : npx pnpm@10 <commande>
+pnpm install
+cp .env.example .env       # puis renseigner les variables (voir les commentaires du fichier)
+pnpm vapid                 # génère les clés VAPID (notifications) à copier dans .env
+pnpm dev                   # API sur :3000
+pnpm --filter @plantes/web dev   # front sur :5173, proxy vers l'API
 ```
 
-Complète `.env` : `CLAUDE_CODE_OAUTH_TOKEN`, `VAPID_*`, `VAPID_SUBJECT` (un vrai `mailto:`), `POC_ACCESS_KEY`.
+Le serveur ne lit pas `.env` seul : `npx tsx --env-file=.env apps/api/src/server.ts` depuis `apps/api`, ou Docker Compose.
 
-## 3. Test 1 en ligne de commande (sans iPhone)
+## Tests
 
 ```bash
-# Avec une photo JPEG < 3,5 Mo copiée dans ./data
-docker compose run --rm app npm run test:ai -- data/calathea.jpg "Calathea sanderiana"
+pnpm typecheck     # types de tous les paquets
+pnpm test          # API, file de génération, rappels, logique d'arrosage : ~30 s, sans réseau, IA factice
+pnpm test:ui       # interface dans un vrai Chrome (écran d'iPhone) ; CHROME_PATH si Chrome est ailleurs
 ```
 
-Attendu : la ligne `[ai] init: … auth=…` (doit indiquer une auth par abonnement, pas une clé API), puis la fiche JSON et la durée.
+Les tests lancent un vrai serveur sur un port libre avec une base temporaire. `AI_PROVIDER=fake` remplace l'IA et `PUSH_DRY_RUN_FILE` remplace l'envoi des notifications : **un test ne consomme jamais l'abonnement Claude ni ne notifie personne**. Ce que les tests ne peuvent pas vérifier (iPhone, IA réelle, exploitation) est dans [`TESTS-MANUELS.md`](TESTS-MANUELS.md).
 
-## 4. Lancer le serveur + le tunnel
+Test avec la vraie IA (consomme l'abonnement, à lancer à la main) : `pnpm test:ai -- <photo.jpg> "<nom>"` depuis un `.env` complet.
 
-```bash
-docker compose up -d
-docker compose logs tunnel | grep trycloudflare   # → https://xxxx.trycloudflare.com
-```
+## Déploiement
 
-## 5. Sur l'iPhone
-
-1. Ouvre l'URL `trycloudflare` dans **Safari**
-2. Partager → **Sur l'écran d'accueil**, puis ouvre « Plantes » depuis l'écran d'accueil
-3. Saisis la clé d'accès → Enregistrer
-4. **Activer les notifications** → Autoriser
-5. **M'envoyer une notif dans 10 s** → verrouille le téléphone
-6. Test 1 : nom + photo prise avec l'appareil → **Générer la fiche**
-
-## Grille de résultats
-
-| Test | Critère de succès | Résultat |
-|---|---|---|
-| Auth abonnement | `auth=` n'indique pas de clé API | |
-| Fiche CLI | JSON valide, durée < 40 s | |
-| Fiche iPhone | Photo prise depuis la PWA, fiche affichée | |
-| Push écran verrouillé | Notif reçue en ≤ 30 s | |
-| Push app fermée | Notif reçue après avoir tué l'app | |
-| Clic sur la notif | Ouvre l'app | |
-
-## Si ça coince
-
-- **`Native CLI binary … not found`** : le binaire optionnel n'a pas été installé ; refaire `docker compose build --no-cache`.
-- **`Aucune sortie structurée reçue`** : relancer avec `AI_DEBUG=1` et me copier la ligne `[ai] init` (liste des outils).
-- **Le bouton notifications dit « non disponible »** : l'app est ouverte dans Safari et non depuis l'écran d'accueil, ou iOS < 16.4.
-- **Push `403`/`BadJwtToken` dans les logs** : `VAPID_SUBJECT` invalide.
-
-L'URL `trycloudflare` change à chaque redémarrage du tunnel : il faudra réinstaller la PWA. Ce sera réglé avec ton domaine dans la V1.
+Un push sur `main` déclenche la CI (types, tests, tests d'interface). Si tout est vert, l'image est publiée sur GHCR ; `node1` la récupère par `scripts/deploy.sh` (cron, toutes les 2 minutes). Détails dans `CLAUDE.md`.

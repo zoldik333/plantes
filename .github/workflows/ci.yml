@@ -21,10 +21,41 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
+  test:
+    # API, file de génération, rappels, logique d'arrosage : serveur réel + IA factice, sans réseau.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  test-ui:
+    # Interface dans un vrai Chrome (écran d'iPhone), passkeys avec authentificateur virtuel.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CHROME_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: google-chrome --version
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:ui
+
   image:
-    # Construit et publie l'image seulement sur main ; node1 la tire (voir scripts/deploy.sh).
+    # Construit et publie l'image seulement sur main, et seulement si tout est vert ; node1 la tire (voir scripts/deploy.sh).
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: typecheck
+    needs: [typecheck, test, test-ui]
     runs-on: ubuntu-latest
     permissions:
       contents: read

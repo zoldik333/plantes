@@ -14,7 +14,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-RUN pnpm install --frozen-lockfile --prod=false && pnpm store prune
+# tests/ fait partie du workspace (le lockfile le mentionne) mais n'est pas installé dans l'image.
+COPY tests/package.json tests/
+RUN pnpm install --frozen-lockfile --prod=false --filter @plantes/api... --filter @plantes/web... && pnpm store prune
 
 COPY apps/api apps/api
 COPY apps/web apps/web

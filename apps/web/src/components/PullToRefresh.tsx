@@ -90,8 +90,10 @@ export function PullToRefresh() {
   return (
     <div
       ref={bar}
-      role="status"
-      aria-live="polite"
+      // Annoncé aux lecteurs d'écran seulement pendant l'actualisation ; invisible pour eux le reste du temps
+      // (sinon « Tire pour actualiser » serait lu en permanence).
+      role={mode === "refreshing" ? "status" : undefined}
+      aria-hidden={mode === "refreshing" ? undefined : true}
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex -translate-y-14 justify-center pt-[calc(env(safe-area-inset-top)+0.5rem)] opacity-0"
     >
       <div className="flex items-center gap-2 rounded-full bg-leaf-700 px-4 py-2 text-sm font-medium text-white shadow-md">

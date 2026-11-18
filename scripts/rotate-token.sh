@@ -21,6 +21,12 @@ main() {
   ssh_hote=${PLANTES_SSH:-zoldik333@192.168.1.10}
   ssh_opts=${PLANTES_SSH_OPTS-"-o BatchMode=yes -o IdentitiesOnly=yes -i $HOME/.ssh/node1"}
   dossier=${PLANTES_DIR:-plantes}
+  case $dossier in
+    '' | *..* | *[!A-Za-z0-9._/-]*) echo "✗ PLANTES_DIR invalide (uniquement A-Z a-z 0-9 . _ / -, sans « .. », non vide). Aucune connexion faite." >&2; exit 1 ;;
+  esac
+  case $ssh_hote in
+    '' | -* | *[[:space:]]*) echo "✗ PLANTES_SSH invalide (ne doit ni commencer par « - » ni contenir d'espace). Aucune connexion faite." >&2; exit 1 ;;
+  esac
   tmp=""
   trap '[ -z "$tmp" ] || rm -f "$tmp"; unset jeton' EXIT
 
@@ -59,7 +65,7 @@ TXT
   echo "Envoi du jeton à $ssh_hote…" >&2
   code=0
   # $ssh_opts doit être découpé en mots (volontairement sans guillemets).
-  printf '%s' "$jeton" | ssh $ssh_opts "$ssh_hote" "cd ~/$dossier && sh scripts/apply-token.sh" || code=$?
+  printf '%s' "$jeton" | ssh $ssh_opts -- "$ssh_hote" "cd ~/$dossier && sh scripts/apply-token.sh" || code=$?
 
   if [ "$code" = 0 ] && [ "$local_aussi" = 1 ]; then
     maj_env_local

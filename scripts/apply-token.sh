@@ -11,7 +11,11 @@ main() {
   ENV=.env
   SAUVEGARDE=.env.avant-jeton
   tmp=""
-  trap '[ -z "$tmp" ] || rm -f "$tmp"' EXIT
+  remplace=0  # 1 entre le remplacement de .env et la fin du script
+  termine=0
+  # Ctrl-C, coupure ssh, TERM : on passe par exit, donc par le trap EXIT (dash n'exécute pas EXIT sur un signal).
+  trap 'exit 1' INT TERM HUP
+  trap nettoyer EXIT
   umask 077
 
   # 1) Lecture et validation du format. On ne répète JAMAIS le contenu reçu.
@@ -46,6 +50,7 @@ main() {
   chmod 600 "$tmp"
   mv "$tmp" "$ENV"
   tmp=""
+  remplace=1
   unset jeton
 
   # 4) Recréation du conteneur avec le nouvel environnement, puis attente de l'état sain.
@@ -62,9 +67,18 @@ main() {
   code=0
   sortie=$(docker compose exec -T app ./node_modules/.bin/tsx src/ai-ping.ts 2>&1) || code=$?
   if [ "$code" = 0 ]; then
+    termine=1
     rm -f "$SAUVEGARDE"
     echo "✓ Jeton renouvelé : les fiches fonctionnent. Prochain renouvellement avant le $(un_an_plus_tard)"
     return 0
+  fi
+  if [ "$code" = 3 ]; then
+    # « On n'a pas pu savoir » (limite d'usage, surcharge, délai) : le nouveau jeton est peut-être valide, l'ancien peut être mort.
+    termine=1
+    rm -f "$SAUVEGARDE"
+    [ -z "$sortie" ] || printf '%s\n' "$sortie" | sed 's/^/    /' >&2
+    echo "⚠ Jeton remplacé mais non vérifié (limite d'usage, surcharge ou délai) : relance la vérification plus tard avec docker compose exec -T app ./node_modules/.bin/tsx src/ai-ping.ts" >&2
+    exit 3
   fi
   if [ "$code" = 2 ]; then
     echo "✗ Le nouveau jeton est refusé (invalide ou expiré)" >&2
@@ -94,20 +108,41 @@ attendre_sain() {
   return 1
 }
 
-# Remet l'ancien .env (identique, droits 600) et l'ancien conteneur ; termine avec le code 1.
-restaurer() {
+# Remet l'ancien .env (identique, droits 600) depuis la sauvegarde ; sans effet si la sauvegarde n'existe plus.
+restaurer_fichier() {
+  [ -f "$SAUVEGARDE" ] || return 0
   tmp=$(mktemp "$ENV.XXXXXX")
   cp "$SAUVEGARDE" "$tmp"
   chmod 600 "$tmp"
   mv "$tmp" "$ENV"
   tmp=""
   rm -f "$SAUVEGARDE"
+}
+
+# Remet l'ancien .env et l'ancien conteneur ; termine avec le code 1.
+restaurer() {
+  restaurer_fichier
+  remplace=0
   if docker compose up -d app > /dev/null 2>&1; then
     echo "L'ancien jeton a été remis et le conteneur recréé avec." >&2
   else
     echo "L'ancien jeton a été remis dans .env, mais le conteneur n'a pas pu être recréé : lancer « docker compose up -d app »." >&2
   fi
   exit 1
+}
+
+# Trap EXIT : supprime toujours le temporaire ; si .env a été remplacé sans fin réussie, remet l'ancien.
+nettoyer() {
+  rc=$?
+  trap '' INT TERM HUP
+  trap - EXIT
+  [ -z "$tmp" ] || rm -f "$tmp"
+  if [ "$remplace" = 1 ] && [ "$termine" != 1 ]; then
+    restaurer_fichier
+    docker compose up -d app > /dev/null 2>&1 || true
+    echo "Interrompu : l'ancien .env a été remis." >&2
+  fi
+  exit "$rc"
 }
 
 main "$@"

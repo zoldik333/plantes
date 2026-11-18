@@ -36,11 +36,14 @@ Code de sortie : 0 = ça marche, 2 = jeton invalide ou expiré, 3 = autre échec
 
 ## Si ça échoue
 
-Le script remet **automatiquement l'ancien jeton** (`.env` identique à l'original, droits 600) et recrée le conteneur avec : l'appli reste dans l'état d'avant. Le message indique la cause :
+Pour un refus (code 2) ou un problème de compte (code 4), le script remet **automatiquement l'ancien jeton** (`.env` identique à l'original, droits 600) et recrée le conteneur avec : l'appli reste dans l'état d'avant. Le message indique la cause :
 
 - « Le nouveau jeton est refusé » : relancer `claude setup-token` et recommencer (vérifier d'avoir copié le jeton en entier) ;
-- « La vérification a échoué (code 3 ou 4) » : vérifier que l'abonnement Claude Pro est actif et que son quota n'est pas épuisé, puis recommencer ;
+- « La vérification a échoué (code 4) » : problème de compte, l'ancien jeton est remis ; vérifier que l'abonnement Claude Pro est actif, puis recommencer ;
+- « ⚠ Jeton remplacé mais non vérifié » (code 3 : limite d'usage, surcharge ou délai) : **le nouveau jeton est conservé**, la sauvegarde est supprimée et le script sort avec le code 3. Choix voulu : on ne sait pas si le nouveau jeton est mauvais, et l'ancien est peut-être déjà mort ; le restaurer risquerait de remettre un jeton inutilisable. Relancer plus tard la vérification (`docker compose exec -T app ./node_modules/.bin/tsx src/ai-ping.ts`) ;
 - « Le conteneur n'est pas devenu sain » : regarder `docker compose logs app` sur `node1`.
+
+Si `apply-token.sh` est interrompu (Ctrl-C, coupure SSH, TERM) après le remplacement de `.env`, l'ancien `.env` est remis et le fichier temporaire (qui contient le jeton) supprimé. `.env*` est ignoré par git (sauf `.env.example`). `rotate-token.sh` refuse un `PLANTES_DIR` hors `[A-Za-z0-9._/-]` ou contenant `..`, et un `PLANTES_SSH` qui commence par `-` ou contient un espace.
 
 ## À faire une première fois à la main
 

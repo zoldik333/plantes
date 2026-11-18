@@ -1,7 +1,7 @@
 // scripts/apply-token.sh (node1) et scripts/rotate-token.sh (Mac) : renouvellement du jeton Claude.
 // Hermétique : faux `docker` et faux `ssh` dans le PATH, dossiers temporaires, jetons factices. Aucun réseau.
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -23,6 +23,8 @@ CLAUDE_TOKEN_CREATED=2025-11-16
 POC_ACCESS_KEY=cle=avec=des=egal
 `;
 
+// node1 est sous Debian (dash) : on teste avec dash quand il est là (le trap EXIT sur signal diffère de bash).
+const SH = existsSync("/bin/dash") ? "/bin/dash" : "/bin/sh";
 const mode = (f: string) => (statSync(f).mode & 0o777).toString(8);
 
 describe("jeton Claude : scripts de renouvellement", () => {
@@ -44,9 +46,9 @@ describe("jeton Claude : scripts de renouvellement", () => {
       `#!/bin/sh
 echo "$*" >> "${trace}/docker-args"
 case "$2" in
-  up) n=$(ls "${trace}" | grep -c '^up-'); cp .env "${trace}/up-$n"; exit \${FAKE_UP_CODE:-0} ;;
+  up) n=$(ls "${trace}" | grep -c '^up-'); cp .env "${trace}/up-$n"; if [ "$n" = 0 ] && [ "\${FAKE_SLEEP_ON:-}" = up ]; then : > "${trace}/dort"; sleep 1; fi; exit \${FAKE_UP_CODE:-0} ;;
   ps) echo "\${FAKE_STATUS:-Up 5 seconds (healthy)}"; exit 0 ;;
-  exec) echo "sortie de ai-ping"; exit \${FAKE_PING_CODE:-0} ;;
+  exec) if [ "\${FAKE_SLEEP_ON:-}" = exec ]; then : > "${trace}/dort"; sleep 1; fi; echo "sortie de ai-ping"; exit \${FAKE_PING_CODE:-0} ;;
 esac
 exit 0
 `,
@@ -72,7 +74,7 @@ exit \${FAKE_SSH_CODE:-0}
   });
 
   const lancer = (script: string, entree: string, args: string[] = [], env: Record<string, string> = {}, path?: string) =>
-    spawnSync("/bin/sh", [join(m.root, "scripts", script), ...args], {
+    spawnSync(SH, [join(m.root, "scripts", script), ...args], {
       input: entree,
       encoding: "utf8",
       env: { PATH: path ?? `${m.bin}:${process.env.PATH}`, HOME: m.root, PLANTES_ATTENTE_SAIN: "2", ...env },
@@ -148,15 +150,47 @@ exit \${FAKE_SSH_CODE:-0}
       for (const sortie of [r.stdout, r.stderr, dockerArgs()]) assert.ok(!sortie.includes(NOUVEAU));
     });
 
-    it("vérification en échec (code 3) : message différent, restauration aussi", () => {
+    it("vérification impossible (code 3) : nouveau jeton CONSERVÉ, sauvegarde supprimée, avertissement, sortie 3", () => {
       ecrireEnv();
       const r = apply(NOUVEAU, { FAKE_PING_CODE: "3" });
+      assert.equal(r.status, 3);
+      assert.match(r.stderr, /⚠ Jeton remplacé mais non vérifié \(limite d'usage, surcharge ou délai\) : relance la vérification plus tard avec docker compose exec -T app \.\/node_modules\/\.bin\/tsx src\/ai-ping\.ts/);
+      assert.match(lire(envFile), new RegExp(`^CLAUDE_CODE_OAUTH_TOKEN=${NOUVEAU}$`, "m"));
+      assert.equal(mode(envFile), "600");
+      assert.ok(!existsSync(join(m.root, ".env.avant-jeton")));
+      assert.deepEqual(readdirSync(m.root).filter((f) => f.startsWith(".env")), [".env"]);
+      assert.ok(!existsSync(join(m.trace, "up-1")), "pas de recréation avec l'ancien environnement");
+      for (const sortie of [r.stdout, r.stderr]) assert.ok(!sortie.includes(NOUVEAU));
+    });
+
+    it("code 4 (compte) : restauration comme pour un refus", () => {
+      ecrireEnv();
+      const r = apply(NOUVEAU, { FAKE_PING_CODE: "4" });
       assert.equal(r.status, 1);
-      assert.match(r.stderr, /vérification a échoué \(code 3\)/);
-      assert.doesNotMatch(r.stderr, /refusé/);
       assert.equal(lire(envFile), ENV_ORIGINAL);
       assert.equal(mode(envFile), "600");
     });
+
+    for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
+      for (const phase of ["up", "exec"] as const) {
+        it(`${signal} pendant « docker ${phase} » : .env d'origine remis (600), aucun .env.* restant`, async () => {
+          ecrireEnv();
+          const enfant = spawn(SH, [join(m.root, "scripts", "apply-token.sh")], {
+            env: { PATH: `${m.bin}:${process.env.PATH}`, HOME: m.root, PLANTES_ATTENTE_SAIN: "2", FAKE_SLEEP_ON: phase },
+            stdio: ["pipe", "ignore", "ignore"],
+          });
+          const fin = new Promise<number | null>((ok) => enfant.on("close", (c) => ok(c)));
+          enfant.stdin.end(NOUVEAU);
+          for (let i = 0; i < 100 && !existsSync(join(m.trace, "dort")); i++) await new Promise((r) => setTimeout(r, 50));
+          assert.ok(existsSync(join(m.trace, "dort")), "le faux docker dort");
+          enfant.kill(signal);
+          await fin;
+          assert.equal(lire(envFile), ENV_ORIGINAL, "octet pour octet");
+          assert.equal(mode(envFile), "600");
+          assert.deepEqual(readdirSync(m.root).filter((f) => f.startsWith(".env")), [".env"], "ni temporaire ni sauvegarde");
+        });
+      }
+    }
 
     it("conteneur jamais sain : échec propre, .env restauré", () => {
       ecrireEnv();
@@ -210,8 +244,29 @@ exit \${FAKE_SSH_CODE:-0}
     it("variables PLANTES_SSH / PLANTES_SSH_OPTS / PLANTES_DIR prises en compte", () => {
       const r = rotate(NOUVEAU, ["--stdin"], { PLANTES_SSH: "moi@hote", PLANTES_SSH_OPTS: "-p 2222", PLANTES_DIR: "autre" });
       assert.equal(r.status, 0, r.stderr);
-      assert.deepEqual(lire(join(m.trace, "ssh-args")).split("\n").filter(Boolean), ["-p", "2222", "moi@hote", "cd ~/autre && sh scripts/apply-token.sh"]);
+      assert.deepEqual(lire(join(m.trace, "ssh-args")).split("\n").filter(Boolean), ["-p", "2222", "--", "moi@hote", "cd ~/autre && sh scripts/apply-token.sh"]);
     });
+
+    it("« -- » avant l'hôte", () => {
+      rotate(NOUVEAU);
+      const args = lire(join(m.trace, "ssh-args")).split("\n").filter(Boolean);
+      assert.equal(args.at(-3), "--");
+    });
+
+    for (const [nom, env] of [
+      ["PLANTES_DIR avec commande", { PLANTES_DIR: "x; rm -rf ~" }],
+      ["PLANTES_DIR avec ..", { PLANTES_DIR: "../x" }],
+      ["PLANTES_SSH option", { PLANTES_SSH: "-oProxyCommand=touch /tmp/pwn" }],
+      ["PLANTES_SSH option sans espace", { PLANTES_SSH: "-oProxyCommand=x" }],
+      ["PLANTES_SSH avec espace", { PLANTES_SSH: "moi@hote autre" }],
+    ] as const) {
+      it(`valeur hostile refusée sans appel ssh : ${nom}`, () => {
+        const r = rotate(NOUVEAU, ["--stdin"], env);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /PLANTES_(DIR|SSH) invalide/);
+        assert.ok(!existsSync(join(m.trace, "ssh-args")), "ssh jamais appelé");
+      });
+    }
 
     it("le code de sortie de ssh est repris, et le .env local n'est pas touché", () => {
       writeFileSync(envFile, ENV_ORIGINAL);
@@ -244,5 +299,12 @@ exit \${FAKE_SSH_CODE:-0}
       assert.match(r.stderr, /Installez Claude Code/);
       assert.ok(!existsSync(join(m.trace, "ssh-args")));
     });
+  });
+
+  it(".gitignore : .env* ignorés (dont temporaires et sauvegarde), .env.example suivi", () => {
+    const racine = resolve(SCRIPTS, "..");
+    const ignore = (f: string) => spawnSync("git", ["check-ignore", "-q", f], { cwd: racine }).status === 0;
+    for (const f of [".env", ".env.avant-jeton", ".env.AbC123"]) assert.ok(ignore(f), `${f} ignoré`);
+    assert.ok(!ignore(".env.example"), ".env.example non ignoré");
   });
 });

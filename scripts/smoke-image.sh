@@ -38,9 +38,13 @@ ok "modules natifs chargés (sharp, better-sqlite3)"
 [ "$(docker exec "$NAME" id -u)" != 0 ] || fail "le serveur tourne en root"
 ok "le serveur ne tourne pas en root"
 
+# Les binaires du serveur sont dans apps/api/node_modules/.bin : on vérifie d'abord que ce dossier existe et contient tsx
+# (sinon l'absence des autres outils ne prouverait rien), puis qu'aucun outil de construction n'y est, ni côté web.
+docker exec "$NAME" test -x /app/apps/api/node_modules/.bin/tsx || fail "tsx absent : le contrôle suivant serait sans valeur"
 for dev in vite tailwindcss tsc drizzle-kit; do
-  ! docker exec "$NAME" test -e "/app/node_modules/.bin/$dev" || fail "outil de construction présent dans l'image : $dev"
+  ! docker exec "$NAME" test -e "/app/apps/api/node_modules/.bin/$dev" || fail "outil de construction présent dans l'image : $dev"
 done
-ok "aucun outil de construction accessible dans l'image (vite, tailwindcss, tsc, drizzle-kit)"
+! docker exec "$NAME" test -d /app/apps/web/node_modules || fail "apps/web/node_modules présent dans l'image (outils du front)"
+ok "aucun outil de construction accessible dans l'image (vite, tailwindcss, tsc, drizzle-kit ; pas de node_modules côté web)"
 
 echo "image saine : $IMAGE"

@@ -21,6 +21,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
+  infra:
+    # node1 applique compose.yaml, Caddyfile et scripts/ dès le `git pull`, sans attendre le reste de la CI :
+    # on les valide donc ici, pour qu'une erreur de syntaxe ne coupe pas le site.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: compose.yaml
+        run: touch .env && docker compose config -q
+      - name: Caddyfile
+        run: docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile
+      - name: Scripts shell
+        run: for f in scripts/*.sh; do sh -n "$f" && echo "ok $f"; done
+
   test:
     # API, file de génération, rappels, logique d'arrosage : serveur réel + IA factice, sans réseau.
     runs-on: ubuntu-latest
@@ -55,7 +69,7 @@ jobs:
   image:
     # Construit et publie l'image seulement sur main, et seulement si tout est vert ; node1 la tire (voir scripts/deploy.sh).
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [typecheck, test, test-ui]
+    needs: [typecheck, infra, test, test-ui]
     runs-on: ubuntu-latest
     permissions:
       contents: read

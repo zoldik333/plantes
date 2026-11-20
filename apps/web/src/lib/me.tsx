@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError } from "./api";
+import { clearOfflineData } from "./offline";
 import { onRefresh } from "./refresh";
 
 export interface Me {
@@ -25,13 +26,23 @@ export function MeProvider({ children }: { children: ReactNode }) {
     try {
       setMe(await api<Me>("/api/me"));
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setMe(null);
-      else throw err;
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        void clearOfflineData(); // plus de session : rien de privé ne reste sur l'appareil
+        setMe(null);
+      } else throw err;
     }
   }, []);
 
   useEffect(() => {
-    refresh().catch(() => setMe(null));
+    // Hors ligne sans rien en cache (statut 0) : ni écran de connexion ni erreur, on réessaie jusqu'au retour du réseau.
+    let timer: ReturnType<typeof setTimeout>;
+    const start = () =>
+      refresh().catch((err) => {
+        if (err instanceof ApiError && err.status === 0) timer = setTimeout(start, 4000);
+        else setMe(null);
+      });
+    void start();
+    return () => clearTimeout(timer);
   }, [refresh]);
 
   // Le foyer (qui en fait partie), la session : relus au retour au premier plan, régulièrement, et sur « tirer pour actualiser ».

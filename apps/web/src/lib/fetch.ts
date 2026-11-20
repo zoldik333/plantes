@@ -13,7 +13,9 @@ export function useFetch<T>(path: string) {
       setState({ data: await api<T>(path), loading: false });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) void refresh();
-      setState({ error: err instanceof Error ? err.message : String(err), loading: false });
+      // Hors ligne (statut 0) : on garde ce qui est déjà affiché plutôt que de le remplacer par une erreur (le bandeau prévient).
+      if (err instanceof ApiError && err.status === 0) setState((s) => (s.data !== undefined ? { data: s.data, loading: false } : { error: err.message, loading: false }));
+      else setState({ error: err instanceof Error ? err.message : String(err), loading: false });
     }
   }, [path, refresh]);
 

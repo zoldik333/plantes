@@ -66,3 +66,11 @@ Ajouter dans la chaîne `input` du fichier `.nft` : `tcp dport { 80, 443 } accep
 ## Durcissements dans le dépôt
 
 `compose.yaml` : le port 3000 est déjà lié à `127.0.0.1`, seuls 80/443 (TCP) et 443 (UDP) sont publiés sur toutes les interfaces ; rien à changer sans preuve de l'audit. `Caddyfile` : inchangé (aucune dépendance à IPv6).
+
+## Constat réel et correction (20/11/2026)
+
+- Mesuré sur `node1` : adresse IPv6 globale `enp2s0` (préfixe dynamique `/64`), route par défaut IPv6, services en écoute sur `[::]` (SSH, Jellyfin, Sonarr, Radarr, Prowlarr, Bazarr, Seerr, FlareSolverr, Caddy). Pare-feu non lisible sans `sudo`.
+- Mesuré depuis l'iPhone en 4G : Jellyfin (`:8096`) et Sonarr (`:8989`) répondaient. La box ne filtrait donc pas l'entrant IPv6.
+- Corrigé : `scripts/ipv6-lockdown.nft` appliqué, puis rendu permanent par un service systemd `plantes-ipv6-lockdown.service` (oneshot, charge uniquement cette table). Vérifié : les deux adresses ne répondent plus en 4G, `https://plantes.tvermorel.fr` répond, SSH par Tailscale fonctionne.
+- Pourquoi pas `nftables.service` : le `/etc/nftables.conf` de Debian commence par `flush ruleset`, ce qui effacerait les règles de Docker.
+- Restant : fermer l'entrant IPv6 dans la box (Freebox OS), en plus du pare-feu de `node1`.

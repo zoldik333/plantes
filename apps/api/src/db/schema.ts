@@ -158,3 +158,38 @@ export const reminderLog = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.slot, t.householdId] })],
 );
+
+/** Conversation avec l'IA à propos d'une plante (chat par plante). Partagée par tout le foyer, supprimée avec la plante. */
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: text("id").primaryKey(),
+    plantId: text("plant_id")
+      .notNull()
+      .references(() => plants.id, { onDelete: "cascade" }),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Auteur d'une question ; vide pour les réponses de l'IA (ou si le compte a été supprimé). */
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    role: text("role", { enum: ["user", "assistant"] }).notNull(),
+    content: text("content").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+  },
+  (t) => [index("chat_messages_plant_idx").on(t.plantId, t.createdAt)],
+);
+
+/** Jetons personnels pour le raccourci iOS (Bearer). Seul le hash est stocké ; le jeton n'est montré qu'à la création. */
+export const apiTokens = sqliteTable("api_tokens", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  householdId: text("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(now),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+});

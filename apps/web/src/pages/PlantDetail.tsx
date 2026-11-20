@@ -151,6 +151,17 @@ export default function PlantDetail({ id }: { id: string }) {
 
       <CareCard plantId={id} water={p.water} hasSheet={p.hasSheet} onChange={plant.reload} />
 
+      <div className="flex gap-2">
+        <Link href={`/plants/${id}/chat`} className={buttonClass("secondary", "flex-1")}>
+          <Icon name="sparkle" />
+          Poser une question
+        </Link>
+        <Link href={`/plants/${id}/timeline`} className={buttonClass("secondary", "flex-1")}>
+          <Icon name="camera" />
+          Évolution
+        </Link>
+      </div>
+
       <Card title="Informations">
         <Field label="Nom" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
         {name.trim() && name.trim() !== p.name && (

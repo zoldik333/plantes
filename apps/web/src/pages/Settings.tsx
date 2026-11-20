@@ -6,6 +6,7 @@ import { ClaudeTokenCard } from "./home/ClaudeTokenCard";
 import { HouseholdCard } from "./home/HouseholdCard";
 import { NotificationsCard } from "./home/NotificationsCard";
 import { PasskeysCard } from "./home/PasskeysCard";
+import { ShortcutCard } from "./home/ShortcutCard";
 
 const isStandalone = () =>
   window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -39,6 +40,7 @@ export default function Settings({ me }: { me: Me }) {
       <HouseholdCard me={me} />
       <PasskeysCard />
       <NotificationsCard />
+      <ShortcutCard />
       <ClaudeTokenCard />
     </Page>
   );

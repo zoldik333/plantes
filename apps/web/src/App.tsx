@@ -4,9 +4,11 @@ import { Notice, Page } from "./components/ui";
 import { useMe, type Me } from "./lib/me";
 import Join from "./pages/Join";
 import Login from "./pages/Login";
+import PlantChat from "./pages/PlantChat";
 import PlantDetail from "./pages/PlantDetail";
 import PlantList from "./pages/PlantList";
 import PlantNew from "./pages/PlantNew";
+import PlantTimeline from "./pages/PlantTimeline";
 import Today from "./pages/Today";
 import Reset from "./pages/Reset";
 import Rooms from "./pages/Rooms";
@@ -22,6 +24,8 @@ function Authenticated({ me }: { me: Me }) {
         <Route path="/plants" component={PlantList} />
         <Route path="/plants/new" component={PlantNew} />
         <Route path="/plants/:id">{(p) => <PlantDetail id={p.id} />}</Route>
+        <Route path="/plants/:id/chat">{(p) => <PlantChat id={p.id} />}</Route>
+        <Route path="/plants/:id/timeline">{(p) => <PlantTimeline id={p.id} />}</Route>
         <Route path="/rooms" component={Rooms} />
         <Route path="/settings">
           <Settings me={me} />

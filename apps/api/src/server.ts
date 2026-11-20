@@ -12,7 +12,11 @@ import { PushService } from "./push.js";
 import { aiRoutes } from "./routes/ai.js";
 import { accountRoutes } from "./routes/account.js";
 import { photosRoutes, plantsRoutes } from "./routes/plants.js";
+import { chatRoutes } from "./routes/chat.js";
 import { roomsRoutes } from "./routes/rooms.js";
+import { shortcutRoutes } from "./routes/shortcuts.js";
+import { timelineRoutes } from "./routes/timeline.js";
+import { tokenRoutes } from "./routes/tokens.js";
 import { todayRoutes } from "./routes/today.js";
 import { sendReminderTest, startReminderScheduler } from "./reminders.js";
 import { requireMember, type AuthEnv } from "./session.js";
@@ -79,6 +83,10 @@ app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api", accountRoutes(ACCESS_KEY));
 app.route("/api/rooms", roomsRoutes);
 app.route("/api/plants", plantsRoutes);
+app.route("/api/plants", chatRoutes); // /:id/chat
+app.route("/api/plants", timelineRoutes); // /:id/timeline
+app.route("/api/tokens", tokenRoutes); // gestion des jetons (session)
+app.route("/api/shortcuts", shortcutRoutes); // actions du raccourci iOS (jeton Bearer)
 app.route("/api/photos", photosRoutes);
 app.route("/api/today", todayRoutes);
 app.route("/api/ai", aiRoutes);

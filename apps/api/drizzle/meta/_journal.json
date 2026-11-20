@@ -43,6 +43,13 @@
       "when": 1795019108468,
       "tag": "0005_system_state",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795185602924,
+      "tag": "0006_chat_api_tokens",
+      "breakpoints": true
     }
   ]
 }

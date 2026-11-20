@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon } from "../../components/Icon";
 import { Button, Card, LinkBox, Notice, useAction } from "../../components/ui";
 import { api } from "../../lib/api";
-import type { Me } from "../../lib/me";
+import { useMe, type Me } from "../../lib/me";
 
 interface Link {
   url: string;
@@ -14,6 +14,8 @@ const fmt = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "n
 export function HouseholdCard({ me }: { me: Me }) {
   const { busy, error, run } = useAction();
   const [invite, setInvite] = useState<Link | null>(null);
+  const { refresh } = useMe();
+  const isOwner = me.household.ownerId === me.user.id;
   const [reset, setReset] = useState<{ name: string; link: Link } | null>(null);
 
   const createInvite = () =>
@@ -26,6 +28,18 @@ export function HouseholdCard({ me }: { me: Me }) {
       setReset({ name, link: await api<Link>(`/api/household/members/${id}/reset-link`, { method: "POST" }) });
     });
 
+  const removeMember = (id: string, name: string) => {
+    const ok = window.confirm(
+      `Retirer ${name} du foyer ? Son compte et ses appareils seront supprimés définitivement. Les plantes et le journal restent. Si ${name} revient, il faudra une nouvelle invitation.`,
+    );
+    if (!ok) return;
+    void run(async () => {
+      await api(`/api/household/members/${id}`, { method: "DELETE" });
+      if (reset) setReset(null);
+      await refresh();
+    });
+  };
+
   return (
     <Card
       title={
@@ -37,16 +51,29 @@ export function HouseholdCard({ me }: { me: Me }) {
     >
       <ul className="flex flex-col divide-y divide-line">
         {me.household.members.map((m) => (
-          <li key={m.id} className="flex items-center justify-between gap-3 py-3">
+          <li key={m.id} className="flex flex-col gap-3 py-3">
             <span className="min-w-0">
               <span className="text-label text-ink">{m.name}</span>
               {m.id === me.user.id && <span className="ml-1 text-body-sm text-ink-muted">(toi)</span>}
               <span className="block truncate text-body-sm text-ink-muted">{m.email}</span>
             </span>
             {m.id !== me.user.id && (
-              <Button variant="secondary" icon="key" className="shrink-0 px-4 text-label" disabled={busy} onClick={() => createReset(m.id, m.name)}>
-                Mot de passe oublié
-              </Button>
+              <span className="flex flex-wrap gap-2">
+                <Button variant="secondary" icon="key" className="px-4 text-label" disabled={busy} onClick={() => createReset(m.id, m.name)}>
+                  Mot de passe oublié
+                </Button>
+                {isOwner && (
+                  <Button
+                    variant="danger"
+                    className="px-4 text-label"
+                    aria-label={`Retirer ${m.name} du foyer`}
+                    disabled={busy}
+                    onClick={() => removeMember(m.id, m.name)}
+                  >
+                    Retirer du foyer
+                  </Button>
+                )}
+              </span>
             )}
           </li>
         ))}

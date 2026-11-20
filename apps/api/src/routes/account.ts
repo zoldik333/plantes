@@ -2,8 +2,9 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { APP_URL, auth } from "../auth.js";
+import { ownerOf } from "../ai-status.js";
 import { db } from "../db/instance.js";
-import { households, householdMembers, invitations, passwordResets, user } from "../db/schema.js";
+import { households, householdMembers, invitations, passwordResets, pushSubscriptions, user } from "../db/schema.js";
 import { hashToken, newId, newToken, safeEqual } from "../lib/tokens.js";
 import { rateLimit } from "../lib/rate-limit.js";
 import { requireMember, type AuthEnv } from "../session.js";
@@ -126,7 +127,7 @@ export function accountRoutes(accessKey: string) {
       .innerJoin(user, eq(user.id, householdMembers.userId))
       .where(eq(householdMembers.householdId, householdId))
       .all();
-    return c.json({ user: me, household: { id: householdId, name: household?.name, members } });
+    return c.json({ user: me, household: { id: householdId, name: household?.name, ownerId: ownerOf(householdId), members } });
   });
 
   app.post("/household/invitations", requireMember, (c) => {
@@ -154,6 +155,32 @@ export function accountRoutes(accessKey: string) {
       .values({ id: newId(), tokenHash: hashToken(token), userId: targetId, createdBy: me.id, expiresAt })
       .run();
     return c.json({ url: `${APP_URL}/reset/${token}`, expiresAt });
+  });
+
+  /**
+   * Retire un compte du foyer (propriétaire seulement) : la ligne `user` est supprimée, et les clés étrangères en
+   * cascade emportent sessions (déconnexion immédiate), mots de passe, passkeys, abonnements push, jetons API,
+   * invitations et liens de réinitialisation. Les plantes, photos, journal et messages restent (auteur mis à null).
+   * L'ordre des contrôles ne révèle rien aux non-propriétaires ; un id d'un autre foyer est un 404.
+   */
+  app.delete("/household/members/:id", requireMember, (c) => {
+    const me = c.get("user");
+    const householdId = c.get("householdId");
+    if (ownerOf(householdId) !== me.id) return c.json({ error: "Seule la personne qui a créé le foyer peut retirer un membre" }, 403);
+    const targetId = c.req.param("id");
+    if (targetId === me.id) return c.json({ error: "Tu ne peux pas te retirer toi-même du foyer" }, 400);
+    const target = db
+      .select()
+      .from(householdMembers)
+      .where(and(eq(householdMembers.userId, targetId), eq(householdMembers.householdId, householdId)))
+      .get();
+    if (!target) return c.json({ error: "Membre introuvable" }, 404);
+    db.transaction((tx) => {
+      // push_subscriptions.user_id a été ajouté par ALTER TABLE (migration 0001) sans ON DELETE : pas de cascade en base.
+      tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, targetId)).run();
+      tx.delete(user).where(eq(user.id, targetId)).run();
+    });
+    return c.json({ ok: true });
   });
 
   return app;

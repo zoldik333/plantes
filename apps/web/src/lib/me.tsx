@@ -4,7 +4,7 @@ import { onRefresh } from "./refresh";
 
 export interface Me {
   user: { id: string; name: string; email: string };
-  household: { id: string; name: string; members: { id: string; name: string; email: string }[] };
+  household: { id: string; name: string; ownerId: string | null; members: { id: string; name: string; email: string }[] };
 }
 
 interface MeState {

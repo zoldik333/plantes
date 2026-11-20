@@ -8,6 +8,7 @@ import { APP_URL, auth } from "./auth.js";
 import { startQueue } from "./care-sheet-queue.js";
 import { scheduleBackups } from "./db/backup.js";
 import { DATA_DIR, db } from "./db/instance.js";
+import { apiRateLimits } from "./lib/api-limits.js";
 import { PushService } from "./push.js";
 import { aiRoutes } from "./routes/ai.js";
 import { accountRoutes } from "./routes/account.js";
@@ -65,6 +66,9 @@ app.use(
     crossOriginResourcePolicy: false,
   }),
 );
+
+// Limite de débit par IP sur toute l'API (le front statique et /health n'y passent pas) : voir lib/api-limits.ts.
+app.use("/api/*", apiRateLimits);
 
 // Les requêtes qui modifient des données doivent venir de notre propre origine (défense CSRF en plus de SameSite).
 const appOrigin = new URL(APP_URL).origin;

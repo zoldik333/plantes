@@ -216,7 +216,7 @@ export async function runTokenWatch(push: PushService | null, now: Date, hours: 
  * Résultat de `ai:ping` (code de sortie + message) : met aussi à jour l'état persistant partagé avec le serveur
  * (succès : retour à « ok », sans notification ; échec d'authentification ou de compte : « problem »).
  */
-export async function pingOutcome(provider: AiProvider, now = new Date()): Promise<{ code: 0 | 2 | 3 | 4; message: string }> {
+export async function pingOutcome(provider: Pick<AiProvider, "generateCareSheet">, now = new Date()): Promise<{ code: 0 | 2 | 3 | 4; message: string }> {
   try {
     const { durationMs } = await provider.generateCareSheet({ plantName: "Pothos" });
     await recordGenerationOutcome(null, null, now);

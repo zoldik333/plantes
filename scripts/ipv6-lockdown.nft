@@ -1,0 +1,24 @@
+#!/usr/sbin/nft -f
+# Pare-feu IPv6 « aucune exposition » pour node1. NON appliqué automatiquement : voir docs/ipv6.md.
+# N'agit que sur l'IPv6 (famille ip6, table à part) : l'IPv4 et les règles de Docker ne sont pas touchés.
+# Charger : sudo nft -f scripts/ipv6-lockdown.nft     Retour arrière : sudo nft delete table ip6 plantes_v6
+add table ip6 plantes_v6
+delete table ip6 plantes_v6
+
+table ip6 plantes_v6 {
+	chain input {
+		type filter hook input priority -10; policy drop;
+		iifname "lo" accept
+		ct state established,related accept
+		ct state invalid drop
+		# Indispensable en IPv6 (découverte de voisins, routeur, MTU) : sans ICMPv6 la machine perd son réseau.
+		meta l4proto ipv6-icmp accept
+		# Réseau local et Tailscale : adresses lien-local et ULA, interface tailscale0 (SSH, accès d'administration).
+		ip6 saddr { fe80::/10, fc00::/7 } accept
+		iifname "tailscale0" accept
+		# DHCPv6 (réponses du routeur)
+		udp dport 546 ip6 saddr fe80::/10 accept
+		# Tout le reste, y compris SSH, 80 et 443 depuis Internet : refusé.
+		# Pour ASSUMER l'IPv6 sur Caddy, ajouter : tcp dport { 80, 443 } accept  et  udp dport 443 accept
+	}
+}

@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { query, type SDKMessage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { classifyAiFailure, messageFor, redactSecrets } from "./errors.js";
-import { AiProviderError, type AiProvider, type CareSheetResult, type Photo } from "./provider.js";
-import { CARE_SHEET_SYSTEM_PROMPT, buildCareSheetPrompt } from "./prompts.js";
+import { AiProviderError, type AiProvider, type CareSheetResult, type ChatContext, type ChatResult, type Photo } from "./provider.js";
+import { CARE_SHEET_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT, buildCareSheetPrompt, buildChatPrompt } from "./prompts.js";
 import { CareSheet, careSheetJsonSchema } from "@plantes/shared";
 
 interface Options {
@@ -43,7 +43,26 @@ export class ClaudeAgentSdkProvider implements AiProvider {
     return { sheet: parsed.data, provider: this.name, durationMs: Date.now() - started };
   }
 
-  private async run(photo: Photo | undefined, text: string): Promise<unknown> {
+  async chat({ context, message, userName }: { context: ChatContext; message: string; userName: string }): Promise<ChatResult> {
+    const started = Date.now();
+    const { resultText, texts } = await this.call(context.photo, buildChatPrompt(context, message, userName), {
+      systemPrompt: CHAT_SYSTEM_PROMPT,
+      structured: false,
+    });
+    const text = (resultText?.trim() || texts.at(-1)?.trim()) ?? "";
+    if (!text) throw new AiProviderError("Réponse vide de l'IA");
+    return { text, provider: this.name, durationMs: Date.now() - started };
+  }
+
+  /**
+   * Un appel au modèle (sans outil, sans config du poste) ; lève une erreur typée en cas d'échec, jamais sur un
+   * simple `subtype` : on lit aussi `is_error` et l'exception de l'itérateur.
+   */
+  private async call(
+    photo: Photo | undefined,
+    text: string,
+    mode: { systemPrompt: string; structured: boolean },
+  ): Promise<StreamOutcome> {
     const message: SDKUserMessage = {
       type: "user",
       message: {
@@ -90,16 +109,16 @@ export class ClaudeAgentSdkProvider implements AiProvider {
           prompt: input(),
           options: {
             model: this.opts.model,
-            systemPrompt: CARE_SHEET_SYSTEM_PROMPT,
+            systemPrompt: mode.systemPrompt,
             tools: [],
-            allowedTools: ["StructuredOutput"],
+            ...(mode.structured && { allowedTools: ["StructuredOutput"] }),
             // Ne charge ni ~/.claude ni les serveurs MCP du poste : seul l'outil de sortie structurée est exposé.
             settingSources: [],
-            maxTurns: 4,
+            maxTurns: mode.structured ? 4 : 2,
             cwd: this.opts.workDir,
             abortController,
             env,
-            outputFormat: { type: "json_schema", schema: careSheetJsonSchema },
+            ...(mode.structured && { outputFormat: { type: "json_schema" as const, schema: careSheetJsonSchema } }),
           },
         }),
         // Un jeton invalide ne se rétablira pas : inutile d'attendre les nouvelles tentatives.
@@ -110,10 +129,14 @@ export class ClaudeAgentSdkProvider implements AiProvider {
       clearTimeout(timer);
     }
 
-    const { structured, resultText, failure, exceptionMessage } = outcome;
-    if (failure || exceptionMessage !== undefined || abortController.signal.aborted) {
+    if (outcome.failure || outcome.exceptionMessage !== undefined || abortController.signal.aborted) {
       throw failureError(outcome, timedOut);
     }
+    return outcome;
+  }
+
+  private async run(photo: Photo | undefined, text: string): Promise<unknown> {
+    const { structured, resultText } = await this.call(photo, text, { systemPrompt: CARE_SHEET_SYSTEM_PROMPT, structured: true });
     if (structured !== undefined && structured !== null) return structured;
 
     // Repli : certaines configurations renvoient le JSON dans le texte final.
@@ -128,7 +151,6 @@ export class ClaudeAgentSdkProvider implements AiProvider {
     throw new AiProviderError("Aucune sortie structurée reçue", resultText);
   }
 }
-
 /** Erreur typée d'un échec ; les jetons éventuellement cités dans les textes sont masqués dans `details`. */
 export function failureError(outcome: StreamOutcome, timedOut: boolean): AiProviderError {
   const { failure, exceptionMessage, assistantErrors, texts } = outcome;

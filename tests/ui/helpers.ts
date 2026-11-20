@@ -33,8 +33,14 @@ export async function launch(): Promise<Browser> {
  * Ouvre une page qui accepte les boîtes de dialogue (confirmations) et recense les erreurs :
  * erreurs JavaScript, et tout ce que la console signale (dont les violations de la politique de sécurité CSP).
  */
-export async function newPage(browser: Browser, errors: string[]): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext(MOBILE);
+export async function newPage(
+  browser: Browser,
+  errors: string[],
+  opts: { serviceWorker?: boolean } = {},
+): Promise<{ ctx: BrowserContext; page: Page }> {
+  // Service worker bloqué par défaut : il ferait passer les requêtes à côté de `page.route` (simulations) et mettrait des données en cache.
+  // Seul tests/ui/offline.test.ts l'autorise (`serviceWorker: true`) pour tester le comportement réel.
+  const ctx = await browser.newContext({ ...MOBILE, serviceWorkers: opts.serviceWorker ? "allow" : "block" });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => {

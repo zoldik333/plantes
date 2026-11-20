@@ -12,7 +12,8 @@ const TABS: { href: string; icon: IconName; label: string; match: (p: string) =>
 
 /**
  * Cadre des pages connectées : contenu + barre d'onglets flottante en verre (pouce de l'utilisateur).
- * L'onglet actif est en citron avec son libellé ; les autres n'affichent que l'icône (libellé en texte masqué).
+ * Quatre onglets de même taille, en icône seule : l'actif sur un rond citron. Le libellé reste en texte masqué
+ * (lecteurs d'écran, tests) plutôt qu'en aria-label : « Pièces » ne doit pas répondre à un libellé de champ « Pièce ».
  */
 export function Shell({ children }: { children: ReactNode }) {
   const [path] = useLocation();
@@ -24,27 +25,21 @@ export function Shell({ children }: { children: ReactNode }) {
         aria-label="Navigation principale"
         className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+12px)] z-40 mx-auto max-w-[26rem] rounded-full bg-glass p-2 shadow-float backdrop-blur-xl"
       >
-        <ul className="flex items-center justify-between">
+        <ul className="flex items-center justify-around">
           {TABS.map((t) => {
             const active = t.match(path);
             return (
               <li key={t.href}>
-                {active ? (
-                  <Link
-                    href={t.href}
-                    aria-current="page"
-                    className="flex h-12 items-center gap-2 rounded-full bg-accent px-4 text-label font-bold text-on-accent"
-                  >
-                    <Icon name={t.icon} size={22} />
-                    {t.label}
-                  </Link>
-                ) : (
-                  <Link href={t.href} className="flex size-12 items-center justify-center rounded-full text-ink-muted active:bg-surface-sunken">
-                    <Icon name={t.icon} size={22} />
-                    {/* Texte masqué plutôt qu'aria-label : « Pièces » ne doit pas répondre à un libellé de champ « Pièce ». */}
-                    <span className="sr-only">{t.label}</span>
-                  </Link>
-                )}
+                <Link
+                  href={t.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex size-12 items-center justify-center rounded-full ${
+                    active ? "bg-accent text-on-accent" : "text-ink-muted active:bg-surface-sunken"
+                  }`}
+                >
+                  <Icon name={t.icon} size={22} />
+                  <span className="sr-only">{t.label}</span>
+                </Link>
               </li>
             );
           })}

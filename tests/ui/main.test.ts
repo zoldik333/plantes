@@ -46,6 +46,16 @@ describe("interface : parcours complet", { skip: cannotRun }, () => {
     await shot(page, "02-home-vide");
   });
 
+  it("barre d'onglets collée en bas : 12 px dans le navigateur, 16 px en PWA iOS (zone de sécurité de 34 px)", async () => {
+    const nav = page.getByRole("navigation", { name: "Navigation principale" });
+    const gap = () => nav.evaluate((el) => Math.round(window.innerHeight - el.getBoundingClientRect().bottom));
+    assert.equal(await gap(), 12);
+    // Chrome n'a pas de zone de sécurité : on simule celle d'un iPhone installé (barre d'accueil).
+    await page.evaluate(() => document.documentElement.style.setProperty("--safe-bottom", "34px"));
+    assert.equal(await gap(), 16);
+    await page.evaluate(() => document.documentElement.style.removeProperty("--safe-bottom"));
+  });
+
   it("pièces : création et renommage", async () => {
     await page.getByRole("link", { name: /Pièces/ }).click();
     await page.getByLabel("Nouvelle pièce").fill("Salon");

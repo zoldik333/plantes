@@ -36,6 +36,8 @@
   --danger: #b3382a;
   --danger-soft: #fbe0db;
   --focus-ring: #101a14;
+  /* Zone de la barre d'accueil iOS (34 px en PWA installée, 0 ailleurs). En variable pour que les tests puissent la simuler. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (prefers-color-scheme: dark) {

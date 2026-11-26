@@ -139,7 +139,7 @@ export default function PlantChat({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 bg-bg px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-[var(--nav-space)] -mx-4 flex flex-col gap-2 bg-bg px-4 pt-2 pb-3">
         <form
           className="flex items-end gap-2"
           onSubmit={(e) => {

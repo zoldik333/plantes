@@ -105,9 +105,24 @@ describe("interface : évolution d'une plante (timeline)", { skip: cannotRun }, 
     assert.ok(await gone(page.getByText("Comparer deux photos")));
   });
 
+  it("changer de page repart du haut, même depuis le bas de la page précédente", async () => {
+    await page.goto(`${s.url}/plants/${plantId}`);
+    const link = page.getByRole("link", { name: "Évolution" });
+    await link.waitFor();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    assert.ok((await page.evaluate(() => window.scrollY)) > 0, "la fiche doit défiler pour que le test ait un sens");
+    await link.click();
+    assert.ok(await shown(page.getByRole("heading", { name: "Évolution" })));
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+  });
+
   it("sans photo : état vide utile ; ajouter une photo depuis la frise la fait apparaître", async () => {
     await page.goto(`${s.url}/plants/${emptyId}/timeline`);
     assert.ok(await shown(page.getByText("Aucune photo pour l'instant")));
+    // Le contenu tient dans l'écran : pas de défilement (zones de sécurité et place de la barre d'onglets comprises).
+    await page.evaluate(() => document.documentElement.style.setProperty("--safe-bottom", "34px"));
+    assert.equal(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight), 0);
+    await page.evaluate(() => document.documentElement.style.removeProperty("--safe-bottom"));
     assert.equal(await page.getByRole("button", { name: "Comparer" }).count(), 0);
     await page.locator('input[type="file"]').setInputFiles(await photoFile());
     assert.ok(await countIs(page.locator("ol img"), 1));

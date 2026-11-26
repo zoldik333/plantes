@@ -8,14 +8,19 @@ import { Icon, type IconName } from "./Icon";
  * - les couleurs de sens (Pill, Notice) toujours avec un mot ou une icône ; aucun emoji.
  */
 
+/** Page : remplit exactement l'écran sous la zone de sécurité haute (pas de défilement si le contenu tient). */
 export function Page({ children }: { children: ReactNode }) {
-  return <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-4 px-4 py-6">{children}</main>;
+  return (
+    <main className="mx-auto flex min-h-[calc(100dvh-var(--safe-top))] w-full max-w-md flex-col gap-4 px-4 pt-3 pb-[var(--page-pb)]">
+      {children}
+    </main>
+  );
 }
 
 /** En-tête de page : sur-titre facultatif, titre (h1) et action à droite. */
 export function PageHeader({ overline, title, action }: { overline?: ReactNode; title: ReactNode; action?: ReactNode }) {
   return (
-    <header className="flex items-center justify-between gap-3 pt-2">
+    <header className="flex items-center justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-1">
         {overline && <p className="text-overline text-ink-muted uppercase">{overline}</p>}
         <h1 className="text-heading text-ink">{title}</h1>

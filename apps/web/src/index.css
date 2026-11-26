@@ -38,6 +38,11 @@
   --focus-ring: #101a14;
   /* Zone de la barre d'accueil iOS (34 px en PWA installée, 0 ailleurs). En variable pour que les tests puissent la simuler. */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  /* Hauteur occupée par la barre d'onglets depuis le bas de l'écran (position basse + 64 px de barre). */
+  --nav-space: calc(max(12px, var(--safe-bottom) - 18px) + 64px);
+  /* Marge sous le contenu d'une page : la barre d'accueil hors onglets ; Shell la remplace par la place de la barre. */
+  --page-pb: calc(1.5rem + var(--safe-bottom));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -154,8 +159,9 @@ body {
   margin: 0;
   min-height: 100dvh;
   font-family: var(--font-sans);
-  /* Zones sûres de l'iPhone (encoche, barre d'accueil) en mode application installée. */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Zones sûres de l'iPhone en mode application installée. Le bas est géré par Page (--page-pb), pas ici :
+     sinon il s'ajoute à la hauteur de la page et toute page défile, même vide. */
+  padding: var(--safe-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 /* Focus : anneau plein de 2 px, décalé de 2 px, visible au clavier seulement. */

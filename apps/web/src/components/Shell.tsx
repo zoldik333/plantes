@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Icon, type IconName } from "./Icon";
 import { PullToRefresh } from "./PullToRefresh";
@@ -19,10 +19,16 @@ const TABS: { href: string; icon: IconName; label: string; match: (p: string) =>
  */
 export function Shell({ children }: { children: ReactNode }) {
   const [path] = useLocation();
+  // Chaque changement de page repart du haut (wouter garde sinon la position de défilement de la page précédente).
+  useLayoutEffect(() => {
+    history.scrollRestoration = "manual"; // « Retour » aussi : le navigateur ne restaure pas l'ancienne position après nous
+    window.scrollTo(0, 0);
+  }, [path]);
   return (
     <>
       <PullToRefresh />
-      <div className="pb-28">{children}</div>
+      {/* Sous le contenu : la place de la barre d'onglets + 16 px, au lieu de la marge par défaut des pages. */}
+      <div className="[--page-pb:calc(var(--nav-space)+1rem)]">{children}</div>
       <nav
         aria-label="Navigation principale"
         className="fixed inset-x-4 bottom-[max(12px,calc(var(--safe-bottom)-18px))] z-40 mx-auto max-w-[26rem] rounded-full bg-glass p-2 shadow-float backdrop-blur-xl"
